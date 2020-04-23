@@ -108,7 +108,7 @@ module.exports = class {
 
   async execute() {
 
-    const issues = await getJiraKeysFromGit()
+    const issues = await this.getJiraKeysFromGit()
 
     if (issues)
       return issues
