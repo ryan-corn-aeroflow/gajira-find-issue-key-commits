@@ -10,7 +10,24 @@ const Action = require('./action')
 const githubEvent = require(process.env.GITHUB_EVENT_PATH)
 const config = YAML.parse(fs.readFileSync(configPath, 'utf8'))
 
-async function exec () {
+async function writeKey(result) {
+  console.log(`Detected issueKey: ${result.issue}`)
+  console.log(`Saving ${result.issue} to ${cliConfigPath}`)
+  console.log(`Saving ${result.issue} to ${configPath}`)
+
+  // Expose created issue's key as an output
+
+
+  const yamledResult = YAML.stringify(result)
+  const extendedConfig = Object.assign({}, config, result)
+
+
+  fs.writeFileSync(configPath, YAML.stringify(extendedConfig))
+
+  return fs.appendFileSync(cliConfigPath, yamledResult)
+}
+
+async function exec() {
   try {
     const result = await new Action({
       githubEvent,
@@ -19,19 +36,18 @@ async function exec () {
     }).execute()
 
     if (result) {
-      console.log(`Detected issueKey: ${result.issue}`)
-      console.log(`Saving ${result.issue} to ${cliConfigPath}`)
-      console.log(`Saving ${result.issue} to ${configPath}`)
+      if (Array.isArray(result)) {
+        let outputIssues = new Array()
 
-      // Expose created issue's key as an output
-      core.setOutput('issue', result.issue)
-
-      const yamledResult = YAML.stringify(result)
-      const extendedConfig = Object.assign({}, config, result)
-
-      fs.writeFileSync(configPath, YAML.stringify(extendedConfig))
-
-      return fs.appendFileSync(cliConfigPath, yamledResult)
+        for (const item of result) {
+          await writeKey(item)
+          outputIssues.push(item.issue)
+        }
+        core.setOutput('issues', outputIssues.join(','))
+      } else {
+        core.setOutput('issue', result.issue)
+        return await writeKey(result)
+      }
     }
 
     console.log('No issueKeys found.')
@@ -41,11 +57,16 @@ async function exec () {
   }
 }
 
-function parseArgs () {
+function parseArgs() {
   return {
     event: core.getInput('event') || config.event,
     string: core.getInput('string') || config.string,
     from: core.getInput('from'),
+    github_token: core.getInput('github-token'),
+    head_ref: core.getInput('head-ref'),
+    base_ref: core.getInput('base-ref'),
+    gist_private: core.getInput('gist-private') && core.getInput('gist-private') == 'true' ? true : false,
+    gist_name: core.getInput('create-gist-output-named'),
   }
 }
 

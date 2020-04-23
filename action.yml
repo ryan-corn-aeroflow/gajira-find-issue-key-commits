@@ -14,9 +14,34 @@ inputs:
     description: Find from predefined place (should be either 'branch', or 'commits', default is 'commits')
     required: false
     default: commits
+  create-gist-output-named:
+    description: >
+      Generate a GitHub Gist using YAML with the name provided here, 
+      that includes each issue key, url, and title as a list of maps.
+    required: false
+  gist-private:
+    default: 'true'
+    description: Is the generated Gist private, defaults to true
+    required: false
+  head-ref:
+    description: The Git Head Ref to which commit messages will be collected up to
+    required: false
+  base-ref:
+    description: The Git Base Ref to which commit messages will be collected up from
+    required: false
+  github-token:
+    description: GitHub Token used for authentication for Gists
+    required: false
+  
 outputs:
   issue:
     description: Key of the found issue
+  issues:
+    description: Keys of the found issues as comma seperated list
+  gist-url:
+    description: The url to the generated Gist
+  gist-name:
+    description: The name of the Gist created
 runs:
   using: 'node12'
   main: './dist/index.js'
