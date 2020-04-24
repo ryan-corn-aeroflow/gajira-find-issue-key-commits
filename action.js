@@ -30,6 +30,7 @@ module.exports = class {
     this.github = null
     this.createGist = false
     this.commitMessageList = null
+    this.foundKeys = null
 
     if (argv.github_token && (argv.gist_name || (this.base_ref && this.head_ref))) {
 
@@ -37,11 +38,6 @@ module.exports = class {
 
       if (argv.gist_name)
         this.createGist = true
-
-      if (argv.base_ref && argv.head_ref)
-        this.foundKeys = new Array()
-
-
     }
   }
 
@@ -62,21 +58,21 @@ module.exports = class {
   }
 
   async getJiraKeysFromGit() {
-    var match = null
+    let match = null
     if (!(this.base_ref && this.head_ref)) {
-      console.log('Base ref and head ref not found')
-      return this.foundKeys
+      core.debug('Base ref and head ref not found')
+      return
     }
 
     // This will work fine up to 250 commit messages
-    commits = await this.github.repos.compareCommits({
+    const commits = await this.github.repos.compareCommits({
       ...this.repo,
       base: this.base_ref,
       head: this.head_ref,
     })
 
     if (!commits || !commits.data)
-      return this.foundKeys
+      return
 
     let fullArray = new Array()
     match = this.head_ref.match(issueIdRegEx)
@@ -99,14 +95,15 @@ module.exports = class {
     }
     // Make the array Unique
     const uniqueKeys = [...new Set(fullArray)]
-    console.log(`Unique Keys: ${uniqueKeys}\n`)
+    core.debug(`Unique Keys: ${uniqueKeys}\n`)
     // Verify that the strings that look like key match real Jira keys
+    this.foundKeys = new Array()
     for (const issueKey of uniqueKeys) {
       const issue = await this.Jira.getIssue(issueKey)
       if (issue)
         this.foundKeys.push(issue)
     }
-    console.log(`Found Jira Keys: ${this.foundKeys}\n`)
+    core.debug(`Found Jira Keys: ${this.foundKeys}\n`)
     return this.foundKeys
   }
 
