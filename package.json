@@ -21,6 +21,7 @@
     "@atlassian-partner-engineering/eslint-config": "^2.3.2",
     "@zeit/ncc": "^0.20.4",
     "eslint": "^5.13.0",
+    "husky": "^4.2.5",
     "jest": "^24.1.0",
     "jest-junit": "^6.2.1",
     "nock": "^10.0.6"
@@ -39,5 +40,10 @@
       "clover"
     ],
     "coverageDirectory": "../test-results"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "npm run build;git add dist"
+    }
   }
 }
