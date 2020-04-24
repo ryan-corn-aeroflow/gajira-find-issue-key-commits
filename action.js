@@ -18,26 +18,27 @@ module.exports = class {
       token: config.token,
       email: config.email,
     })
-    console.log(`Config found is: ${config}`)
+    core.debug(`Config found: ${JSON.dumps(config)}`)
+    core.debug(`Args found: ${JSON.dumps(argv)}`)
     this.config = config
     this.argv = argv
     this.githubEvent = githubEvent
-    this.head_ref = config.head_ref
-    this.base_ref = config.base_ref
-    this.gist_private = config.gist_private
+    this.head_ref = argv.head_ref
+    this.base_ref = argv.base_ref
+    this.gist_private = argv.gist_private
     this.payload = process.env.GITHUB_EVENT_PATH ? require(process.env.GITHUB_EVENT_PATH) : {}
     this.github = null
     this.createGist = false
     this.commitMessageList = null
 
-    if (config.github_token && (config.gist_name || (this.base_ref && this.head_ref))) {
+    if (argv.github_token && (argv.gist_name || (this.base_ref && this.head_ref))) {
 
-      this.github = new Octokit({ auth: `token ${config.github_token}` })
+      this.github = new Octokit({ auth: `token ${argv.github_token}` })
 
-      if (config.gist_name)
+      if (argv.gist_name)
         this.createGist = true
 
-      if (config.base_ref && config.head_ref)
+      if (argv.base_ref && argv.head_ref)
         this.foundKeys = new Array()
 
 
