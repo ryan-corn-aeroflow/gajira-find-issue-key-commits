@@ -18,7 +18,7 @@ module.exports = class {
       token: config.token,
       email: config.email,
     })
-
+    console.log(`Config found is: ${config}`)
     this.config = config
     this.argv = argv
     this.githubEvent = githubEvent
@@ -30,7 +30,7 @@ module.exports = class {
     this.createGist = false
     this.commitMessageList = null
 
-    if (config.github_token && (config.gist_name || (config.base_ref && config.head_ref))) {
+    if (config.github_token && (config.gist_name || (this.base_ref && this.head_ref))) {
 
       this.github = new Octokit({ auth: `token ${config.github_token}` })
 
@@ -62,8 +62,10 @@ module.exports = class {
 
   async getJiraKeysFromGit() {
     var match = null
-    if (!(this.base_ref && this.head_ref))
+    if (!(this.base_ref && this.head_ref)) {
+      console.log('Base ref and head ref not found')
       return this.foundKeys
+    }
 
     // This will work fine up to 250 commit messages
     commits = await this.github.repos.compareCommits({
@@ -138,17 +140,13 @@ module.exports = class {
   }
 
   preprocessString(str) {
-    _.templateSettings.interpolate = /{{([\s\S]+?)}}/g
-
     try {
+      _.templateSettings.interpolate = /{{([\s\S]+?)}}/g
       const tmpl = _.template(str)
       return tmpl({ event: this.githubEvent })
     } catch (error) {
       console.error(error)
       return
     }
-
   }
-
-
 }
