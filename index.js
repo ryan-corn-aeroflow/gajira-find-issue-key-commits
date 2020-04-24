@@ -36,8 +36,9 @@ async function exec() {
     }).execute()
 
     if (result) {
+      console.log(`Result is returned. ${result.toString()}`)
       if (Array.isArray(result)) {
-
+        console.log('Result is an array')
         let outputIssues = new Array()
 
         for (const item of result) {
@@ -47,9 +48,9 @@ async function exec() {
 
         core.setOutput('issues', outputIssues.join(','))
         return
-        
-      } else {
 
+      } else {
+        console.log('Result is not an array')
         core.setOutput('issue', result.issue)
         return await writeKey(result)
 
