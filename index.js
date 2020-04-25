@@ -38,7 +38,7 @@ async function exec () {
     }).execute()
 
     if (result) {
-      core.debug(`Result is returned:\n${JSON.stringify(result)}`)
+      core.debug(`Result was returned.`)
       if (Array.isArray(result)) {
         core.debug('Result is an array')
         const outputIssues = []

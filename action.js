@@ -182,11 +182,13 @@ module.exports = class {
     }
     for (const item of commits.data.commits) {
       if (item.commit && item.commit.message) {
-        match = item.commit.message.match(issueIdRegEx)
-        if (match) {
-          for (const issueKey of match) {
-            core.debug(`Jira key regex found ${issueKey} in: ${item.commit.message}`)
-            fullArray.push(issueKey)
+        if (!(item.commit.message.startsWith('Merge branch') || item.commit.message.startsWith('Merge pull'))) {
+          match = item.commit.message.match(issueIdRegEx)
+          if (match) {
+            for (const issueKey of match) {
+              core.debug(`Jira key regex found ${issueKey} in: ${item.commit.message}`)
+              fullArray.push(issueKey)
+            }
           }
         }
       }
@@ -201,11 +203,33 @@ module.exports = class {
       const issue = await this.Jira.getIssue(issueKey)
 
       if (issue) {
-        core.debug(`Jira issue: ${JSON.stringify(issue)}`)
-        this.foundKeys.push(issue)
+        try {
+          core.debug(`Jira ${issue.key} project name: ${issue.fields.project.name}`)
+          core.debug(`Jira ${issue.key} project key: ${issue.fields.project.key}`)
+          if (Array.isArray(issue.fields.customfield_10500)) {
+          // Pull Request
+            core.debug(`Jira ${issue.key} linked pull request: ${issue.fields.customfield_10500[0]}`)
+          }
+          core.debug(`Jira ${issue.key} priority: ${issue.fields.priority.name}`)
+          core.debug(`Jira ${issue.key} status: ${issue.fields.status.name}`)
+          core.debug(`Jira ${issue.key} statusCategory: ${issue.fields.status.statusCategory.name}`)
+          if (Array.isArray(issue.fields.customfield_11306)) {
+          // Assigned to
+            core.debug(`Jira ${issue.key} displayName: ${issue.fields.customfield_11306[0].displayName}`)
+          }
+
+          core.debug(`Jira ${issue.key} summary: ${issue.fields.summary}`)
+          core.debug(`Jira ${issue.key} description: ${issue.fields.description}`)
+          core.debug(`Jira ${issue.key} duedate: ${issue.fields.duedate}`)
+
+        // issue.fields.comment.comments[]
+        // issue.fields.worklog.worklogs[]
+        } finally {
+          this.foundKeys.push(issue)
+        }
       }
     }
-    core.debug(`Found Jira Keys: ${this.foundKeys}\n`)
+    core.debug(`Found Jira Keys: ${this.foundKeys.map(a => a.key)}\n`)
 
     return this.foundKeys
   }
