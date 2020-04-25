@@ -57,6 +57,7 @@ module.exports = class {
       state: 'all',
     })
 
+    core.debug(`Milestones: ${JSON.stringify(milestones)}`)
     for (const element of milestones.data) {
       if (element.title === issueMilestone.toString()) {
         core.debug(`Existing milestone found: ${element.title}`)
@@ -71,15 +72,13 @@ module.exports = class {
     let milestone = await this.findGithubMilestone(issueMilestone)
 
     if (milestone) {
-      if (milestone.state === 'closed') {
-        this.github.issues.updateMilestone({
-          ...this.repo,
-          milestone_number: milestone.number,
-          description: issueMilestoneDescription,
-          state: 'open',
-          due_on: issueMilestoneDueDate,
-        })
-      }
+      this.github.issues.updateMilestone({
+        ...this.repo,
+        milestone_number: milestone.number,
+        description: issueMilestoneDescription,
+        state: 'open',
+        due_on: issueMilestoneDueDate,
+      })
 
       return milestone.number
     }
@@ -97,12 +96,14 @@ module.exports = class {
   }
 
   async createOrUpdateGHIssue (issueKey, issueTitle, issueBody, issueAssignee, milestoneNumber) {
+    core.debug(`Getting list of issues`)
     const issues = await this.github.issues.listForRepo({
       ...this.repo,
       state: 'open',
     })
     let issueNumber = null
 
+    core.debug(`Checking for ${issueKey} in list of issues`)
     for (const i in issues.data) {
       if (!i.pull_request && i.title.contains(issueKey)) {
         issueNumber = i.issue_number
@@ -113,6 +114,7 @@ module.exports = class {
     let issue = null
 
     if (issueNumber) {
+      core.debug(`Updating ${issueKey} with issue number ${issueNumber}`)
       issue = await this.github.issues.update({
         title: `${issueKey}: ${issueTitle}`,
         body: issueBody,
@@ -120,6 +122,7 @@ module.exports = class {
         milestone: milestoneNumber,
       })
     } else {
+      core.debug(`Creating ${issueKey}`)
       issue = await this.github.issues.create({
         title: `${issueKey}: ${issueTitle}`,
         body: issueBody,
@@ -162,7 +165,7 @@ module.exports = class {
 
       return
     }
-
+    core.debug(`Getting list of github commits between ${this.base_ref} and ${this.head_ref}`)
     // This will work fine up to 250 commit messages
     const commits = await this.github.repos.compareCommits({
       ...this.repo,
@@ -170,14 +173,15 @@ module.exports = class {
       head: this.head_ref,
     })
 
+    core.debug(`List of commits found: ${JSON.stringify(commits)}`)
     if (!commits || !commits.data) { return }
 
     const fullArray = []
 
     match = this.head_ref.match(issueIdRegEx)
-
-    for (const issueKey of match) { fullArray.push(issueKey) }
-
+    if (match) {
+      for (const issueKey of match) { fullArray.push(issueKey) }
+    }
     for (const commit of commits.data.commits) {
       if (commit.message) {
         match = commit.message.match(issueIdRegEx)
