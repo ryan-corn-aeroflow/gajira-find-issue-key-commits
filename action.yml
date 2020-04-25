@@ -41,4 +41,4 @@ outputs:
     description: The name of the Gist created
 runs:
   using: 'node12'
-  main: 'index.js'
+  main: 'dist/index.js'
