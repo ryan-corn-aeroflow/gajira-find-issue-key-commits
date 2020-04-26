@@ -2,6 +2,7 @@ const _ = require('lodash')
 const core = require('@actions/core')
 const { Octokit } = require('@octokit/rest')
 const Jira = require('./common/net/Jira')
+const J2M = require('./lib/J2M')
 
 const issueIdRegEx = /([a-zA-Z0-9]+-[0-9]+)/g
 
@@ -17,19 +18,28 @@ module.exports = class {
       token: config.token,
       email: config.email,
     })
+    this.J2M = new J2M()
     core.debug(`Config found: ${JSON.stringify(config)}`)
     core.debug(`Args found: ${JSON.stringify(argv)}`)
     this.config = config
     this.argv = argv
     this.githubEvent = githubEvent
-    this.head_ref = argv.head_ref
-    this.base_ref = argv.base_ref
     this.github = null
     this.createIssue = argv.createIssue
     this.commitMessageList = null
     this.foundKeys = null
 
-    if (argv.githubToken && (argv.createIssue || (this.base_ref && this.head_ref))) {
+    if (Object.prototype.hasOwnProperty.call(githubEvent, 'pull_request')) {
+      this.headRef = githubEvent.pull_request.head.ref || null
+      this.baseRef = githubEvent.pull_request.base.ref || null
+    } else if (Object.prototype.hasOwnProperty.call(githubEvent, 'ref')) {
+      this.headRef = githubEvent.ref || null
+      this.baseRef = null
+    }
+    this.headRef = argv.headRef || this.headRef || null
+    this.baseRef = argv.baseRef || this.baseRef || null
+
+    if (argv.githubToken && (argv.createIssue || (this.baseRef && this.headRef))) {
       this.github = new Octokit({ auth: `token ${argv.githubToken}` })
     }
   }
@@ -117,7 +127,7 @@ module.exports = class {
       core.debug(`Updating ${issueKey} with issue number ${issueNumber}`)
       issue = await this.github.issues.update({
         title: `${issueKey}: ${issueTitle}`,
-        body: issueBody,
+        body: this.J2M.toM(issueBody),
         assignees: issueAssignee ? [issueAssignee] : null,
         milestone: milestoneNumber,
       })
@@ -125,7 +135,7 @@ module.exports = class {
       core.debug(`Creating ${issueKey}`)
       issue = await this.github.issues.create({
         title: `${issueKey}: ${issueTitle}`,
-        body: issueBody,
+        body: this.J2M.toM(issueBody),
         assignees: issueAssignee ? [issueAssignee] : null,
         milestone: milestoneNumber,
       })
@@ -160,35 +170,40 @@ module.exports = class {
   async getJiraKeysFromGitRange () {
     let match = null
 
-    if (!(this.base_ref && this.head_ref)) {
+    if (!(this.baseRef && this.headRef)) {
       core.debug('Base ref and head ref not found')
 
       return
     }
-    core.debug(`Getting list of github commits between ${this.base_ref} and ${this.head_ref}`)
+    core.debug(`Getting list of github commits between ${this.baseRef} and ${this.headRef}`)
     // This will work fine up to 250 commit messages
     const commits = await this.github.repos.compareCommits({
       ...this.repo,
-      base: this.base_ref,
-      head: this.head_ref,
+      base: this.baseRef,
+      head: this.headRef,
     })
 
     if (!commits || !commits.data) { return }
     const fullArray = []
 
-    match = this.head_ref.match(issueIdRegEx)
+    match = this.headRef.match(issueIdRegEx)
     if (match) {
       for (const issueKey of match) { fullArray.push(issueKey) }
     }
     for (const item of commits.data.commits) {
       if (item.commit && item.commit.message) {
-        if (!(item.commit.message.startsWith('Merge branch') || item.commit.message.startsWith('Merge pull'))) {
-          match = item.commit.message.match(issueIdRegEx)
-          if (match) {
-            for (const issueKey of match) {
-              core.debug(`Jira key regex found ${issueKey} in: ${item.commit.message}`)
-              fullArray.push(issueKey)
+        match = item.commit.message.match(issueIdRegEx)
+        if (match) {
+          if (this.argv.includeMergeMessages) {
+            if (!(item.commit.message.startsWith('Merge branch') || item.commit.message.startsWith('Merge pull'))) {
+              core.warning('Commit message indicates that it is a merge')
+            } else {
+              core.warning('Commit message indicates that it is not a merge')
             }
+          }
+          for (const issueKey of match) {
+            core.debug(`Jira key regex found ${issueKey} in: ${item.commit.message}`)
+            fullArray.push(issueKey)
           }
         }
       }
@@ -220,6 +235,7 @@ module.exports = class {
 
           core.debug(`Jira ${issue.key} summary: ${issue.fields.summary}`)
           core.debug(`Jira ${issue.key} description: ${issue.fields.description}`)
+          core.debug(`Jira ${issue.key} description as markdown: ${this.J2M.toM(issue.fields.description)}`)
           core.debug(`Jira ${issue.key} duedate: ${issue.fields.duedate}`)
 
         // issue.fields.comment.comments[]
