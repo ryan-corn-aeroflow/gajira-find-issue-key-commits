@@ -46,6 +46,7 @@ module.exports = class {
   }
 
   async findGithubMilestone (issueMilestone) {
+    if (!issueMilestone) { return }
     const milestones = await this.github.issues.listMilestonesForRepo({
       ...context.repo,
       state: 'all',
@@ -62,6 +63,7 @@ module.exports = class {
   }
 
   async createOrUpdateMilestone (issueMilestone, issueMilestoneDueDate, issueMilestoneDescription) {
+    if (!issueMilestone) { return }
     let milestone = await this.findGithubMilestone(issueMilestone)
 
     if (milestone) {
@@ -130,11 +132,14 @@ module.exports = class {
 
   async jiraToGitHub (jiraIssue) {
     // Get or set milestone from issue
+    // for (let version of jiraIssue.fixVersions) {
+
     const msNumber = await this.createOrUpdateMilestone(
-      jiraIssue.sprint,
+      jiraIssue.sprint || null,
       jiraIssue.DueDate,
       `Jira project ${jiraIssue.project} sprint ${jiraIssue.sprint}`
     )
+
     // set or update github issue
 
     await this.createOrUpdateGHIssue(
@@ -213,8 +218,8 @@ module.exports = class {
 
       if (issue) {
         core.debug(`Issue ${issue.key}: \n${YAML.stringify(issue)}`)
+        issueObject.set('key', issue.key)
         try {
-          issueObject.set('key', issue.key)
           issueObject.set('projectName', issue.fields.project.name)
           core.debug(`Jira ${issue.key} project name: ${issue.fields.project.name}`)
           issueObject.set('projectKey', issue.fields.project.key)
@@ -235,13 +240,17 @@ module.exports = class {
           core.debug(`Jira ${issue.key} description: ${issue.fields.description}`)
           issueObject.set('description', this.J2M.toM(issue.fields.description))
           core.debug(`Jira ${issue.key} description as markdown: ${this.J2M.toM(issue.fields.description)}`)
-          core.debug(`Jira ${issue.key} duedate: ${new Date(issue.fields.duedate).toString()}`)
+          core.debug(`Jira ${issue.key} duedate: ${new Date(issue.fields.duedate)}`)
 
           // issue.fields.comment.comments[]
-          // issue.fields.worklog.worklogs[]          
+          // issue.fields.worklog.worklogs[]
         } finally {
-          this.jiraToGitHub(issueObject)
           this.foundKeys.push(issueObject)
+        }
+        try {
+          this.jiraToGitHub(issueObject)
+        } catch (error) {
+          core.error(error)
         }
       }
     }

@@ -22,7 +22,7 @@ class Jira {
 
     try {
       const res = await this.fetch('getIssue', {
-        pathname: `/rest/api/2/issue/${issueId}`,
+        pathname: `/rest/agile/1.0/issue/${issueId}`,
         query: {
           fields: fields.join(','),
           expand: expand.join(','),
@@ -38,6 +38,28 @@ class Jira {
       throw error
     }
   }
+
+  // async getIssue (issueId, query = {}) {
+  //   const { fields = [], expand = [] } = query
+
+  //   try {
+  //     const res = await this.fetch('getIssue', {
+  //       pathname: `/rest/api/2/issue/${issueId}`,
+  //       query: {
+  //         fields: fields.join(','),
+  //         expand: expand.join(','),
+  //       },
+  //     })
+
+  //     return res
+  //   } catch (error) {
+  //     if (get(error, 'res.status') === 404) {
+  //       return
+  //     }
+
+  //     throw error
+  //   }
+  // }
 
   async getIssueTransitions (issueId) {
     return this.fetch('getIssueTransitions', {
