@@ -1,6 +1,7 @@
 const _ = require('lodash')
 const core = require('@actions/core')
-const { Octokit } = require('@octokit/rest')
+const github = require('@actions/github')
+const YAML = require('yaml')
 const Jira = require('./common/net/Jira')
 const J2M = require('./lib/J2M')
 
@@ -10,6 +11,8 @@ const eventTemplates = {
   branch: '{{event.ref}}',
   commits: "{{event.commits.map(c=>c.message).join(' ')}}",
 }
+
+const { context } = github
 
 module.exports = class {
   constructor ({ githubEvent, argv, config }) {
@@ -39,35 +42,15 @@ module.exports = class {
     this.headRef = argv.headRef || this.headRef || null
     this.baseRef = argv.baseRef || this.baseRef || null
 
-    if (argv.githubToken && (argv.createIssue || (this.baseRef && this.headRef))) {
-      this.github = new Octokit({ auth: `token ${argv.githubToken}` })
-    }
-  }
-
-  get repo () {
-    if (process.env.GITHUB_REPOSITORY) {
-      const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/')
-
-      return { owner, repo }
-    }
-
-    if (this.githubEvent.repository) {
-      return {
-        owner: this.githubEvent.repository.owner.login,
-        repo: this.githubEvent.repository.name,
-      }
-    }
-
-    throw new Error('this.repo requires a GITHUB_REPOSITORY environment variable like \'owner/repo\'')
+    this.github = new github.GitHub(argv.githubToken) || null
   }
 
   async findGithubMilestone (issueMilestone) {
     const milestones = await this.github.issues.listMilestonesForRepo({
-      ...this.repo,
+      ...context.repo,
       state: 'all',
     })
 
-    core.debug(`Milestones: ${JSON.stringify(milestones)}`)
     for (const element of milestones.data) {
       if (element.title === issueMilestone.toString()) {
         core.debug(`Existing milestone found: ${element.title}`)
@@ -83,7 +66,7 @@ module.exports = class {
 
     if (milestone) {
       this.github.issues.updateMilestone({
-        ...this.repo,
+        ...context.repo,
         milestone_number: milestone.number,
         description: issueMilestoneDescription,
         state: 'open',
@@ -94,7 +77,7 @@ module.exports = class {
     }
 
     milestone = await this.github.issues.createMilestone({
-      ...this.repo,
+      ...context.repo,
       title: `${issueMilestone}`,
       description: issueMilestoneDescription,
       state: 'open',
@@ -108,7 +91,7 @@ module.exports = class {
   async createOrUpdateGHIssue (issueKey, issueTitle, issueBody, issueAssignee, milestoneNumber) {
     core.debug(`Getting list of issues`)
     const issues = await this.github.issues.listForRepo({
-      ...this.repo,
+      ...context.repo,
       state: 'open',
     })
     let issueNumber = null
@@ -141,30 +124,33 @@ module.exports = class {
       })
     }
 
-    core.debug(`Github Issue: ${JSON.stringify(issue)}`)
+    core.debug(`Github Issue: ${YAML.stringify(issue)}`)
   }
 
-  async jiraToGitHub (jiraIssue, state = 'open') {
+  async jiraToGitHub (jiraIssue) {
     // Get or set milestone from issue
-    // msNumber = await createOrUpdateMilestone (
-    // jiraIssue.sprint,
-    // jiraIssue.DueDate,
-    // `Jira project ${jiraIssue.project} sprint ${jiraIssue.sprint}`
-    // )
+    const msNumber = await this.createOrUpdateMilestone(
+      jiraIssue.sprint,
+      jiraIssue.DueDate,
+      `Jira project ${jiraIssue.project} sprint ${jiraIssue.sprint}`
+    )
     // set or update github issue
-    // ghIssue = await createOrUpdateGHIssue (
-    // jiraIssue.key,
-    //  jiraIssue.title,
-    //  jiraIssue.body,
-    //  this.githubEvent.author,
-    //  msNumber)
-    // if (this.githubEvent.pull_request.event == closed && type == merged) {
-    // Update issue to state closed
-    // update Jira Task to state 'Testing'
-    // } else if (this.githubEvent.pull_request.event in ['opened', 'synchronized']) {
-    // update Jira Task to state 'In Progress'
-    // }
 
+    await this.createOrUpdateGHIssue(
+      jiraIssue.key,
+      jiraIssue.summary,
+      jiraIssue.description,
+      msNumber
+    )
+
+    if (context.eventName === 'pull_request') {
+      if (context.payload.action in ['closed'] && context.payload.pull_request.merged === 'true') {
+        core.debug('Update issue to state closed')
+        core.debug('Update Jira Task to state Testing')
+      } else if (context.payload.action in ['opened', 'synchronized']) {
+        core.debug('Update Jira Task to state In Progress')
+      }
+    }
   }
 
   async getJiraKeysFromGitRange () {
@@ -178,7 +164,7 @@ module.exports = class {
     core.debug(`Getting list of github commits between ${this.baseRef} and ${this.headRef}`)
     // This will work fine up to 250 commit messages
     const commits = await this.github.repos.compareCommits({
-      ...this.repo,
+      ...context.repo,
       base: this.baseRef,
       head: this.headRef,
     })
@@ -194,16 +180,22 @@ module.exports = class {
       if (item.commit && item.commit.message) {
         match = item.commit.message.match(issueIdRegEx)
         if (match) {
-          if (this.argv.includeMergeMessages) {
-            if (!(item.commit.message.startsWith('Merge branch') || item.commit.message.startsWith('Merge pull'))) {
-              core.warning('Commit message indicates that it is a merge')
-            } else {
-              core.warning('Commit message indicates that it is not a merge')
+          let skipCommit = false
+
+          if ((item.commit.message.startsWith('Merge branch') || item.commit.message.startsWith('Merge pull'))) {
+            core.debug('Commit message indicates that it is a merge')
+            if (!this.argv.includeMergeMessages) {
+              skipCommit = true
             }
+          } else {
+            core.debug('Commit message indicates that it is not a merge')
           }
-          for (const issueKey of match) {
-            core.debug(`Jira key regex found ${issueKey} in: ${item.commit.message}`)
-            fullArray.push(issueKey)
+
+          if (skipCommit === false) {
+            for (const issueKey of match) {
+              core.debug(`Jira key regex found ${issueKey} in: ${item.commit.message}`)
+              fullArray.push(issueKey)
+            }
           }
         }
       }
@@ -216,32 +208,39 @@ module.exports = class {
     this.foundKeys = []
     for (const issueKey of uniqueKeys) {
       const issue = await this.Jira.getIssue(issueKey)
+      const issueObject = new Map()
 
       if (issue) {
+        core.debug(`Issue ${issue.key}: \n${YAML.stringify(issue)}`)
         try {
+          issueObject.set('key', issue.key)
+          issueObject.set('projectName', issue.fields.project.name)
           core.debug(`Jira ${issue.key} project name: ${issue.fields.project.name}`)
+          issueObject.set('projectKey', issue.fields.project.key)
           core.debug(`Jira ${issue.key} project key: ${issue.fields.project.key}`)
-          if (Array.isArray(issue.fields.customfield_10500)) {
-          // Pull Request
-            core.debug(`Jira ${issue.key} linked pull request: ${issue.fields.customfield_10500[0]}`)
-          }
+          issueObject.set('priority', issue.fields.priority.name)
           core.debug(`Jira ${issue.key} priority: ${issue.fields.priority.name}`)
+          issueObject.set('status', issue.fields.status.name)
           core.debug(`Jira ${issue.key} status: ${issue.fields.status.name}`)
+          issueObject.set('statusCategory', issue.fields.status.statusCategory.name)
           core.debug(`Jira ${issue.key} statusCategory: ${issue.fields.status.statusCategory.name}`)
           if (Array.isArray(issue.fields.customfield_11306)) {
-          // Assigned to
+            // Assigned to
             core.debug(`Jira ${issue.key} displayName: ${issue.fields.customfield_11306[0].displayName}`)
           }
-
+          issueObject.set('summary', issue.fields.summary)
           core.debug(`Jira ${issue.key} summary: ${issue.fields.summary}`)
+          issueObject.set('descriptionJira', issue.fields.description)
           core.debug(`Jira ${issue.key} description: ${issue.fields.description}`)
+          issueObject.set('description', this.J2M.toM(issue.fields.description))
           core.debug(`Jira ${issue.key} description as markdown: ${this.J2M.toM(issue.fields.description)}`)
-          core.debug(`Jira ${issue.key} duedate: ${issue.fields.duedate}`)
+          core.debug(`Jira ${issue.key} duedate: ${new Date(issue.fields.duedate).toString()}`)
 
-        // issue.fields.comment.comments[]
-        // issue.fields.worklog.worklogs[]
+          // issue.fields.comment.comments[]
+          // issue.fields.worklog.worklogs[]          
         } finally {
-          this.foundKeys.push(issue)
+          this.jiraToGitHub(issueObject)
+          this.foundKeys.push(issueObject)
         }
       }
     }
@@ -253,7 +252,9 @@ module.exports = class {
   async execute () {
     const issues = await this.getJiraKeysFromGitRange()
 
-    if (issues) { return issues }
+    if (issues) {
+      return issues
+    }
 
     const template = eventTemplates[this.argv.from] || this.argv._.join(' ')
     const extractString = this.preprocessString(template)
