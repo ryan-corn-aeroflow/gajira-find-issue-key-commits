@@ -101,7 +101,7 @@ module.exports = class {
     core.debug(`Checking for ${issueKey} in list of issues`)
     for (const i of issues.data) {
       core.warning(`GitHub Issue:\n${YAML.stringify(i)}`)
-      if (!i.pull_request && i.title && i.title.contains(issueKey)) {
+      if (!i.pull_request && i.title && i.title.includes(issueKey)) {
         issueNumber = i.issue_number
         break
       }
