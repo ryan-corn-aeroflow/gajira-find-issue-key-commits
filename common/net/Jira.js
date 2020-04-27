@@ -13,7 +13,7 @@ class Jira {
 
   async createIssue (body) {
     return this.fetch('createIssue',
-      { pathname: '/rest/api/2/issue' },
+      { pathname: '/rest/api/3/issue' },
       { method: 'POST', body })
   }
 
@@ -22,7 +22,7 @@ class Jira {
 
     try {
       const res = await this.fetch('getIssue', {
-        pathname: `/rest/agile/1.0/issue/${issueId}`,
+        pathname: `/rest/api/3/issue/${issueId}`,
         query: {
           fields: fields.join(','),
           expand: expand.join(','),
@@ -39,31 +39,9 @@ class Jira {
     }
   }
 
-  // async getIssue (issueId, query = {}) {
-  //   const { fields = [], expand = [] } = query
-
-  //   try {
-  //     const res = await this.fetch('getIssue', {
-  //       pathname: `/rest/api/2/issue/${issueId}`,
-  //       query: {
-  //         fields: fields.join(','),
-  //         expand: expand.join(','),
-  //       },
-  //     })
-
-  //     return res
-  //   } catch (error) {
-  //     if (get(error, 'res.status') === 404) {
-  //       return
-  //     }
-
-  //     throw error
-  //   }
-  // }
-
   async getIssueTransitions (issueId) {
     return this.fetch('getIssueTransitions', {
-      pathname: `/rest/api/2/issue/${issueId}/transitions`,
+      pathname: `/rest/api/3/issue/${issueId}/transitions`,
     }, {
       method: 'GET',
     })
@@ -93,6 +71,10 @@ class Jira {
 
     if (headers['Content-Type'] === undefined) {
       headers['Content-Type'] = 'application/json'
+    }
+
+    if (headers.Accept === undefined) {
+      headers.Accept = 'application/json'
     }
 
     if (headers.Authorization === undefined) {

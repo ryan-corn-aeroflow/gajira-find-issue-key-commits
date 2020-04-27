@@ -135,17 +135,17 @@ module.exports = class {
     // for (let version of jiraIssue.fixVersions) {
 
     const msNumber = await this.createOrUpdateMilestone(
-      jiraIssue.sprint || null,
-      jiraIssue.DueDate,
-      `Jira project ${jiraIssue.project} sprint ${jiraIssue.sprint}`
+      jiraIssue.get('sprint') || null,
+      jiraIssue.get('duedate'),
+      `Jira project ${jiraIssue.get('project')} sprint ${jiraIssue.get('sprint')}`
     )
 
     // set or update github issue
 
     await this.createOrUpdateGHIssue(
-      jiraIssue.key,
-      jiraIssue.summary,
-      jiraIssue.description,
+      jiraIssue.get('key'),
+      jiraIssue.get('summary'),
+      jiraIssue.get('description'),
       msNumber
     )
 
@@ -237,10 +237,12 @@ module.exports = class {
           issueObject.set('summary', issue.fields.summary)
           core.debug(`Jira ${issue.key} summary: ${issue.fields.summary}`)
           issueObject.set('descriptionJira', issue.fields.description)
-          core.debug(`Jira ${issue.key} description: ${issue.fields.description}`)
           issueObject.set('description', this.J2M.toM(issue.fields.description))
-          core.debug(`Jira ${issue.key} description as markdown: ${this.J2M.toM(issue.fields.description)}`)
-          core.debug(`Jira ${issue.key} duedate: ${new Date(issue.fields.duedate)}`)
+          if (issue.fields.sprint) {
+            issueObject.set('sprint', issue.fields.sprint.name)
+            issueObject.set('duedate', issue.fields.sprint.endDate)
+            core.debug(`Jira ${issue.key} sprint: \n${YAML.stringify(issue.fields.sprint)}`)
+          }
 
           // issue.fields.comment.comments[]
           // issue.fields.worklog.worklogs[]
@@ -254,7 +256,7 @@ module.exports = class {
         }
       }
     }
-    core.debug(`Found Jira Keys: ${this.foundKeys.map(a => a.key)}\n`)
+    core.debug(`Found Jira Keys: ${this.foundKeys.map(a => a.get('key'))}\n`)
 
     return this.foundKeys
   }
@@ -288,7 +290,7 @@ module.exports = class {
       if (issue) {
         core.debug(`Jira issue: ${JSON.stringify(issue)}`)
 
-        return { issue: issue.key }
+        return new Map(['key', issue.key])
       }
     }
   }
