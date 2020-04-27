@@ -90,7 +90,7 @@ module.exports = class {
     return milestone.number
   }
 
-  async createOrUpdateGHIssue(issueKey, issueTitle, issueBody, issueAssignee, milestoneNumber) {
+  async createOrUpdateGHIssue (issueKey, issueTitle, issueBody, issueAssignee, milestoneNumber) {
     core.debug(`Getting list of issues`)
     const issues = await this.github.issues.listForRepo({
       ...context.repo,
@@ -130,7 +130,7 @@ module.exports = class {
     core.debug(`Github Issue: ${YAML.stringify(issue)}`)
   }
 
-  async jiraToGitHub(jiraIssue) {
+  async jiraToGitHub (jiraIssue) {
     // Get or set milestone from issue
     // for (let version of jiraIssue.fixVersions) {
 
@@ -159,7 +159,7 @@ module.exports = class {
     }
   }
 
-  async getJiraKeysFromGitRange() {
+  async getJiraKeysFromGitRange () {
     let match = null
 
     if (!(this.baseRef && this.headRef)) {
@@ -213,8 +213,8 @@ module.exports = class {
       // Which is used only by atlassian, and we need a converter to Markdown.
       // Version 2 uses Atlassian RichText for its Descriptions, and this can be converted to Markdown
       // TODO: Harass Atlassian about conversion between their own products
-      const issue = await this.Jira.getIssue({ issueId: issueKey, version: '3' })
-      const issuev2 = await this.Jira.getIssue({ issueId: issueKey, query: { fields: ['description'] }, version: '2' })
+      const issue = await this.Jira.getIssue(issueKey, null, '3')
+      const issueV2 = await this.Jira.getIssue(issueKey, { fields: ['description'] }, '2')
       const issueObject = new Map()
 
       if (issue) {
@@ -237,9 +237,9 @@ module.exports = class {
           }
           issueObject.set('summary', issue.fields.summary)
           core.debug(`Jira ${issue.key} summary: ${issue.fields.summary}`)
-          if (issuev2.fields.description) {
-            issueObject.set('descriptionJira', issuev2.fields.description)
-            issueObject.set('description', this.J2M.toM(issuev2.fields.description))
+          if (issueV2.fields.description) {
+            issueObject.set('descriptionJira', issueV2.fields.description)
+            issueObject.set('description', this.J2M.toM(issueV2.fields.description))
           }
           if (issue.fields.sprint) {
             issueObject.set('sprint', issue.fields.sprint.name)
