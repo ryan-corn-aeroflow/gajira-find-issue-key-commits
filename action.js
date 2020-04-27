@@ -149,6 +149,7 @@ module.exports = class {
       core.debug(`Updating ${issueKey} with issue number ${issueNumber}`)
       issue = await this.github.issues.update({
         ...context.repo,
+        issue_number: issueNumber,
         title: `${issueKey}: ${issueTitle}`,
         body: this.J2M.toM(issueBody || ''),
         assignees: [],
@@ -169,7 +170,7 @@ module.exports = class {
 
     this.githubIssues.push(issue)
 
-    core.debug(`Github Issue: ${YAML.stringify(issue.number)}`)
+    core.debug(`Github Issue: \n${YAML.stringify(issue)}`)
   }
 
   async jiraToGitHub (jiraIssue) {
