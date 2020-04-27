@@ -44,7 +44,7 @@ async function exec () {
         const outputIssues = []
 
         for (const item of result) {
-          await writeKey({ issue: item.get('key') })
+          await writeKey(item)
           outputIssues.push(item.get('key'))
         }
 

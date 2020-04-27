@@ -122,7 +122,7 @@ module.exports = class {
       issue = await this.github.issues.create({
         title: `${issueKey}: ${issueTitle}`,
         body: this.J2M.toM(issueBody),
-        assignees: issueAssignee ? [issueAssignee] : null,
+        // assignees: issueAssignee ? [issueAssignee] : null,
         milestone: milestoneNumber,
       })
     }
