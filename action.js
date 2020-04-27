@@ -310,7 +310,8 @@ module.exports = class {
         }
       }
     }
-    core.debug(`Found Jira Keys: ${this.foundKeys.map(a => a.get('key'))}\n`)
+    core.debug(`Found Jira Keys  : ${this.foundKeys.map(a => a.get('key'))}\n`)
+    core.debug(`Found GitHub Keys: ${this.foundKeys.map(a => a.get('ghNumber'))}\n`)
 
     return this.foundKeys
   }
@@ -320,7 +321,7 @@ module.exports = class {
 
     if (issues) {
       const jIssues = this.foundKeys.map(a => `[${a.get('key')}]`)
-      const ghIssues = this.githubIssues.map(a => `Resolves: #${a.get('number')})`)
+      const ghIssues = this.foundKeys.map(a => `Resolves: #${a.get('ghNumber')}\n`)
       let text = ''
 
       text += `**Linked Jira Issues: ${jIssues}**\n\n`
