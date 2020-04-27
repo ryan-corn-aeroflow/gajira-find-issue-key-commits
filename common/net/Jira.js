@@ -11,7 +11,7 @@ class Jira {
     this.email = email
   }
 
-  async createIssue (body, , version='2') {
+  async createIssue (body, version='2') {
     return this.fetch('createIssue',
       { pathname: `/rest/api/${version}/issue` },
       { method: 'POST', body })
