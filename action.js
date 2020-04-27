@@ -151,7 +151,7 @@ module.exports = class {
         ...context.repo,
         issue_number: issueNumber,
         title: `${issueKey}: ${issueTitle}`,
-        body: this.J2M.toM(issueBody || ''),
+        body: issueBody,
         assignees: [],
         // assignees: issueAssignee ? [issueAssignee] : null,
         milestone: milestoneNumber,
@@ -161,27 +161,27 @@ module.exports = class {
       issue = await this.github.issues.create({
         ...context.repo,
         title: `${issueKey}: ${issueTitle}`,
-        body: this.J2M.toM(issueBody || ''),
+        body: issueBody,
         assignees: [],
         // assignees: issueAssignee ? [issueAssignee] : null,
         milestone: milestoneNumber,
       })
     }
 
-    this.githubIssues.push(issue)
+    this.githubIssues.push(issue.data)
 
-    core.debug(`Github Issue: \n${YAML.stringify(issue)}`)
+    core.debug(`Github Issue: \n${YAML.stringify(issue.data)}`)
   }
 
   async jiraToGitHub (jiraIssue) {
     // Get or set milestone from issue
     // for (let version of jiraIssue.fixVersions) {
-    core.debug(`JiraIssue is in project ${jiraIssue.get('project')} sprint ${jiraIssue.get('sprint')} and `)
+    core.debug(`JiraIssue is in project ${jiraIssue.get('projectKey')} sprint ${jiraIssue.get('sprint')}`)
 
     const msNumber = await this.createOrUpdateMilestone(
       jiraIssue.get('sprint') || null,
       jiraIssue.get('duedate'),
-      `Jira project ${jiraIssue.get('project')} sprint ${jiraIssue.get('sprint')}`
+      `Jira project ${jiraIssue.get('projectKey')} sprint ${jiraIssue.get('sprint')}`
     )
 
     // set or update github issue
@@ -290,6 +290,11 @@ module.exports = class {
             issueObject.set('sprint', issue.fields.sprint.name)
             issueObject.set('duedate', issue.fields.sprint.endDate)
             core.debug(`Jira ${issue.key} sprint: \n${YAML.stringify(issue.fields.sprint)}`)
+          }
+          if (issueV2.fields.sprint) {
+            issueObject.set('sprint', issueV2.fields.sprint.name)
+            issueObject.set('duedate', issueV2.fields.sprint.endDate)
+            core.debug(`Jira ${issue.key} sprint: \n${YAML.stringify(issueV2.fields.sprint)}`)
           }
 
           // issue.fields.comment.comments[]
