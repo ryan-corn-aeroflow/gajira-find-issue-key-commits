@@ -193,13 +193,10 @@ module.exports = class {
             if (!this.argv.includeMergeMessages) {
               skipCommit = true
             }
-          } else {
-            core.debug('Commit message indicates that it is not a merge')
           }
 
           if (skipCommit === false) {
             for (const issueKey of match) {
-              core.debug(`Jira key regex found ${issueKey} in: ${item.commit.message}`)
               fullArray.push(issueKey)
             }
           }
@@ -213,7 +210,12 @@ module.exports = class {
     // Verify that the strings that look like key match real Jira keys
     this.foundKeys = []
     for (const issueKey of uniqueKeys) {
-      const issue = await this.Jira.getIssue(issueKey)
+      // Version 3 includes Sprint information, but description is in Atlassian Document Format
+      // Which is used only by atlassian, and we need a converter to Markdown.
+      // Version 2 uses Atlassian RichText for its Descriptions, and this can be converted to Markdown
+      // TODO: Harass Atlassian about conversion between their own products
+      const issue = await this.Jira.getIssue(issueKey, version='3')
+      const issuev2 = await this.Jira.getIssue(issueKey, query={fields=['description']},version='2')
       const issueObject = new Map()
 
       if (issue) {
@@ -236,8 +238,10 @@ module.exports = class {
           }
           issueObject.set('summary', issue.fields.summary)
           core.debug(`Jira ${issue.key} summary: ${issue.fields.summary}`)
-          issueObject.set('descriptionJira', issue.fields.description)
-          issueObject.set('description', this.J2M.toM(issue.fields.description))
+          if (issuev2.fields.description) {
+          issueObject.set('descriptionJira', issuev2.fields.description)
+          issueObject.set('description', this.J2M.toM(issuev2.fields.description))
+          }
           if (issue.fields.sprint) {
             issueObject.set('sprint', issue.fields.sprint.name)
             issueObject.set('duedate', issue.fields.sprint.endDate)

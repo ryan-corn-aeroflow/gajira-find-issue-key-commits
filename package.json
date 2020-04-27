@@ -13,6 +13,7 @@
   "dependencies": {
     "@actions/core": "^1.0.0",
     "@actions/github": "^2.1.1",
+    "adf-builder": "^3.3.0",
     "lodash": "^4.17.11",
     "node-fetch": "^2.3.0",
     "yaml": "^1.3.1"
