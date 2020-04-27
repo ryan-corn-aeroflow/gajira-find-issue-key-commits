@@ -114,7 +114,7 @@ module.exports = class {
       issue = await this.github.issues.update({
         title: `${issueKey}: ${issueTitle}`,
         body: this.J2M.toM(issueBody),
-        assignees: issueAssignee ? [issueAssignee] : null,
+        // assignees: issueAssignee ? [issueAssignee] : null,
         milestone: milestoneNumber,
       })
     } else {
@@ -189,7 +189,6 @@ module.exports = class {
           let skipCommit = false
 
           if ((item.commit.message.startsWith('Merge branch') || item.commit.message.startsWith('Merge pull'))) {
-            core.debug('Commit message indicates that it is a merge')
             if (!this.argv.includeMergeMessages) {
               skipCommit = true
             }
@@ -214,8 +213,8 @@ module.exports = class {
       // Which is used only by atlassian, and we need a converter to Markdown.
       // Version 2 uses Atlassian RichText for its Descriptions, and this can be converted to Markdown
       // TODO: Harass Atlassian about conversion between their own products
-      const issue = await this.Jira.getIssue(issueKey, '3')
-      const issuev2 = await this.Jira.getIssue(issueKey, { fields: ['description'] }, '2')
+      const issue = await this.Jira.getIssue(issueKey, version='3')
+      const issuev2 = await this.Jira.getIssue(issueKey, query={ fields: ['description'] }, version='2')
       const issueObject = new Map()
 
       if (issue) {
