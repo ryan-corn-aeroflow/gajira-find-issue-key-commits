@@ -127,7 +127,7 @@ module.exports = class {
     core.debug(`Final text:\n ${pr.data.body}`)
   }
 
-  async createOrUpdateGHIssue (issueKey, issueTitle, issueBody, issueAssignee, milestoneNumber) {
+  async createOrUpdateGHIssue (issueKey, issueTitle, issueBody, milestoneNumber) {
     core.debug(`Getting list of issues`)
     const issues = await this.github.issues.listForRepo({
       ...context.repo,
@@ -137,7 +137,6 @@ module.exports = class {
 
     core.debug(`Checking for ${issueKey} in list of issues`)
     for (const i of issues.data) {
-      core.warning(`GitHub Issue:\n${YAML.stringify(i)}`)
       if (!i.pull_request && i.title && i.title.includes(issueKey)) {
         issueNumber = i.issue_number
         break
@@ -151,7 +150,7 @@ module.exports = class {
       issue = await this.github.issues.update({
         ...context.repo,
         title: `${issueKey}: ${issueTitle}`,
-        body: this.J2M.toM(issueBody),
+        body: this.J2M.toM(issueBody || ''),
         assignees: [],
         // assignees: issueAssignee ? [issueAssignee] : null,
         milestone: milestoneNumber,
@@ -161,7 +160,7 @@ module.exports = class {
       issue = await this.github.issues.create({
         ...context.repo,
         title: `${issueKey}: ${issueTitle}`,
-        body: this.J2M.toM(issueBody),
+        body: this.J2M.toM(issueBody || ''),
         assignees: [],
         // assignees: issueAssignee ? [issueAssignee] : null,
         milestone: milestoneNumber,
@@ -170,7 +169,7 @@ module.exports = class {
 
     this.githubIssues.push(issue)
 
-    core.debug(`Github Issue: ${YAML.stringify(issue)}`)
+    core.debug(`Github Issue: ${YAML.stringify(issue.issue_number)}`)
   }
 
   async jiraToGitHub (jiraIssue) {
@@ -312,7 +311,7 @@ module.exports = class {
     const issues = await this.getJiraKeysFromGitRange()
 
     if (issues) {
-      const jIssues = this.foundKeys.map(a => `[${a.get('key')})]`)
+      const jIssues = this.foundKeys.map(a => `[${a.get('key')}]`)
       const ghIssues = this.githubIssues.map(a => `Resolves: #${a.get('issue_number')})`)
       let text = ''
 
