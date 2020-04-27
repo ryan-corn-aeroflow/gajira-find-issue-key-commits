@@ -214,7 +214,7 @@ module.exports = class {
       // Version 2 uses Atlassian RichText for its Descriptions, and this can be converted to Markdown
       // TODO: Harass Atlassian about conversion between their own products
       const issue = await this.Jira.getIssue(issueKey, null, '3')
-      const issueV2 = await this.Jira.getIssue(issueKey, { fields: ['description'] }, '2')
+      const issueV2 = await this.Jira.getIssue(issueKey, null, '2')
       const issueObject = new Map()
 
       if (issue) {
