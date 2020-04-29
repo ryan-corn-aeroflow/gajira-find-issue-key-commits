@@ -135,8 +135,8 @@ module.exports = class {
   }
 
   async updatePullRequestBody (startToken, endToken) {
-    const jIssues = this.foundKeys.map(a => `*  [${a.get('key')}] ${a.get('summary')} (Resolves #${a.get('ghNumber')})\n`)
-    const text = `### Linked Jira Issues:\n${jIssues}\n\n`
+    const jIssues = this.foundKeys.map(a => `*  [${a.get('key')}] ${a.get('summary')} (Resolves #${a.get('ghNumber')})`)
+    const text = `### Linked Jira Issues:\n\n${jIssues.join('\n')}\n`
 
     if (this.githubEvent.pull_request === null && context.payload.pull_request === null) {
       core.debug(`Skipping pull request update, pull_request not found in current github context, or received event`)
