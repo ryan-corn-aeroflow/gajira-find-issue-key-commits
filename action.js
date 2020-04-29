@@ -17,6 +17,21 @@ const eventTemplates = {
 
 const { context } = github
 
+async function getPreviousReleaseRef (octo) {
+  if (!context.repository || !octo) {
+    return
+  }
+  const releases = await octo.repos.getLatestRelease({
+    ...context.repo,
+  })
+
+  // eslint-disable-next-line camelcase
+  const { tag_name } = releases.payload
+
+  // eslint-disable-next-line camelcase
+  return tag_name
+}
+
 module.exports = class {
   constructor ({ githubEvent, argv, config }) {
     this.Jira = new Jira({
@@ -29,12 +44,14 @@ module.exports = class {
     core.debug(`Args found: ${JSON.stringify(argv)}`)
     this.config = config
     this.argv = argv
-    this.githubEvent = githubEvent
+    this.githubEvent = githubEvent || context.payload
     this.github = null
     this.createIssue = argv.createIssue
     this.commitMessageList = null
     this.foundKeys = null
     this.githubIssues = []
+
+    this.github = new github.GitHub(argv.githubToken) || null
 
     if (Object.prototype.hasOwnProperty.call(githubEvent, 'pull_request')) {
       this.headRef = githubEvent.pull_request.head.ref || null
@@ -43,11 +60,20 @@ module.exports = class {
       this.headRef = githubEvent.ref || null
       this.baseRef = null
     }
+    if (context.eventName === 'pull_request') {
+      this.headRef = this.headRef || context.payload.pull_request.head.ref || null
+      this.baseRef = this.baseRef || context.payload.pull_request.base.ref || null
+    } else if (context.eventName === 'push') {
+      if (context.payload.ref.startsWith('refs/tags')) {
+        this.baseRef = this.baseRef || getPreviousReleaseRef(this.github)
+      }
+      this.headRef = this.headRef || context.payload.ref || null
+    }
     this.headRef = argv.headRef || this.headRef || null
     this.baseRef = argv.baseRef || this.baseRef || null
-
-    this.github = new github.GitHub(argv.githubToken) || null
   }
+
+  // if (context.payload.action in ['closed'] && context.payload.pull_request.merged === 'true')
 
   async findGithubMilestone (issueMilestone) {
     if (!issueMilestone) { return }
@@ -104,7 +130,10 @@ module.exports = class {
     return `${fullText}\n[/]: / "${startToken}"\n${insertText}\n[/]: / "${endToken}"`
   }
 
-  async updatePullRequestBody (text, startToken, endToken) {
+  async updatePullRequestBody (startToken, endToken) {
+    const jIssues = this.foundKeys.map(a => `*  [${a.get('key')}] ${a.get('summary')} (Resolves #${a.get('ghNumber')})\n`)
+    const text = `### Linked Jira Issues:\n${jIssues}\n\n`
+
     if (this.githubEvent.pull_request === null && context.payload.pull_request === null) {
       core.debug(`Skipping pull request update, pull_request not found in current github context, or received event`)
 
@@ -316,19 +345,19 @@ module.exports = class {
     return this.foundKeys
   }
 
+  async outputReleaseNotes () {
+    const issues = this.foundKeys.map(a => `*  [${a.get('key')}] ${a.get('summary')}\n`)
+
+    core.setOutput('notes', `### Release Notes:\n${issues}`)
+  }
+
   async execute () {
     const issues = await this.getJiraKeysFromGitRange()
 
     if (issues) {
-      const jIssues = this.foundKeys.map(a => `[${a.get('key')}]`)
-      const ghIssues = this.foundKeys.map(a => `Resolves: #${a.get('ghNumber')}\n`)
-      let text = ''
+      await this.updatePullRequestBody(startJiraToken, endJiraToken)
 
-      text += `**Linked Jira Issues: ${jIssues}**\n\n`
-      text += '*The GitHub Issues below mirror the Jira Issues and will be closed*\n'
-      text += '*when this PR is merged into the default branch.*\n\n'
-      text += `${ghIssues}\n`
-      await this.updatePullRequestBody(text, startJiraToken, endJiraToken)
+      await this.outputReleaseNotes()
 
       return issues
     }
