@@ -43,6 +43,7 @@ module.exports = class {
       token: config.token,
       email: config.email,
     })
+    this.jiraUrl = config.baseUrl
     this.J2M = new J2M()
     core.debug(`Config found: ${JSON.stringify(config)}`)
     core.debug(`Args found: ${JSON.stringify(argv)}`)
@@ -136,8 +137,8 @@ module.exports = class {
   }
 
   async updatePullRequestBody (startToken, endToken) {
-    const jIssues = this.foundKeys.map(a => `*  [${a.get('key')}] ${a.get('summary')} (Resolves #${a.get('ghNumber')})`)
-    const text = `### Linked Jira Issues:\n\n${jIssues.join('\n')}\n`
+    const issues = await this.formattedIssueList()
+    const text = `### Linked Jira Issues:\n\n${issues}\n`
 
     if (this.githubEvent.pull_request === null && context.payload.pull_request === null) {
       core.debug(`Skipping pull request update, pull_request not found in current github context, or received event`)
@@ -384,10 +385,14 @@ module.exports = class {
     return this.foundKeys
   }
 
-  async outputReleaseNotes () {
-    const issues = this.foundKeys.map(a => `*  [${a.get('key')}] ${a.get('summary')}`)
+  async formattedIssueList () {
+    return this.foundKeys.map(a => `*  [${a.get('key')}](${this.jiraUrl}/browse/${a.get('key')}) ${a.get('summary')} (Fix: #${a.get('ghNumber')})`).join('\n')
+  }
 
-    core.setOutput('notes', `### Release Notes:\n\n${issues.join('\n')}`)
+  async outputReleaseNotes () {
+    const issues = await this.formattedIssueList()
+
+    core.setOutput('notes', `### Release Notes:\n\n${issues}`)
   }
 
   async execute () {
