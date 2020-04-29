@@ -170,6 +170,7 @@ module.exports = class {
             const { groups } = newTitle.match(re)
 
             newTitle = `${issues.join(', ')}: ${upperCaseFirst(groups.title.trim())}`.slice(0, 71)
+            core.setOutput('title', `${upperCaseFirst(groups.title.trim())}`)
           } catch (error) {
             core.warning(error)
           }
