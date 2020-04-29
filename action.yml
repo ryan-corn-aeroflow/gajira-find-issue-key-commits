@@ -42,6 +42,13 @@ inputs:
       The Git Base Ref to which commit messages will be collected up from.
       If the base-ref is not included, 
     required: false
+  standardize-pr-title:
+    description: >
+      Collects the Jira issue numbers from the Pull Request, and puts them at the start of the PR title.
+      Trims to 70 characters, i.e:
+        MYISSUE-123, MYISSUE-124: Resolve callback error, and fix typo
+    required: false
+    default: 'false'
   include-merge-messages:
     description: >
       When parsing commit messages, include merge and pull messages.

@@ -32,6 +32,10 @@ async function getPreviousReleaseRef (octo) {
   return tag_name
 }
 
+function upperCaseFirst (str) {
+  return str.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.substr(1))
+}
+
 module.exports = class {
   constructor ({ githubEvent, argv, config }) {
     this.Jira = new Jira({
@@ -140,15 +144,44 @@ module.exports = class {
       return
     }
 
-    const { number, body } = this.githubEvent.pull_request || context.payload.pull_request
+    const { number, body, title } = this.githubEvent.pull_request || context.payload.pull_request
 
     core.debug(`Updating PR number ${number}`)
     core.debug(`With text:\n ${text}`)
+
+    let newTitle = title.trim()
+
+    if (this.argv.updatePRTitle) {
+      const match = title.match(issueIdRegEx)
+
+      if (match) {
+        const issueKeys = this.foundKeys.map(a => a.get('key'))
+        const issues = []
+
+        for (const issueKey of match) {
+          if (issueKey in issueKeys) {
+            issues.push(issueKey)
+          }
+        }
+
+        if (issues.length > 0) {
+          try {
+            const re = /(?:(?:\n|\[|\s)+)?(?<issues>(?:(?:[a-zA-Z]{0,8})(?:[ \-_])(?:[0-9]{3,5})(?:, )?)+)?(?:\]|:)?(?:[ \-_|\]]+)?(?<title>.*)?$/gm
+            const { groups } = newTitle.match(re)
+
+            newTitle = `${issues.join(', ')}: ${upperCaseFirst(groups.title.trim())}`.slice(0, 71)
+          } catch (error) {
+            core.warning(error)
+          }
+        }
+      }
+    }
 
     const bodyUpdate = await this.updateStringByToken(startToken, endToken, body, text)
 
     await this.github.pulls.update({
       ...context.repo,
+      title: newTitle,
       body: bodyUpdate,
       pull_number: number,
     })
