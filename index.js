@@ -79,7 +79,7 @@ function parseArgs () {
     GitHubIssues: core.getInput('generate-github-issues') === 'true',
     GitHubMilestones: core.getInput('generate-github-milestones') === 'true',
     returns: core.getInput('returns') || 'first',
-    updatePRTitle: core.getInput('standardize-pr-title') === 'false',
+    updatePRTitle: core.getInput('standardize-pr-title') === 'true',
 
   }
 }
