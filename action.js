@@ -56,7 +56,25 @@ module.exports = class {
     this.commitMessageList = null
     this.foundKeys = null
     this.githubIssues = []
-    this.jiraTransition = argv.jiraTransition
+    this.jiraTransition = null
+    this.transitionChain = []
+    if (argv.transitionChain) {
+      this.transitionChain = argv.transitionChain.split(',')
+    }
+
+    if (context.eventName === 'pull_request') {
+      if (context.payload.action in ['closed'] && context.payload.pull_request.merged === 'true') {
+        this.jiraTransition = argv.transitionOnPrMerge
+      } else if (context.payload.action in ['opened']) {
+        this.jiraTransition = argv.transitionOnPrOpen
+      }
+    } else if (context.eventName === 'pull_request_review') {
+      if (context.payload.state === 'APPROVED') {
+        this.jiraTransition = argv.transitionOnPrApproval
+      }
+    } else if (context.eventName in ['create']) {
+      this.jiraTransition = argv.transitionOnNewBranch
+    }
 
     this.github = new github.GitHub(argv.githubToken) || null
 
@@ -252,15 +270,6 @@ module.exports = class {
       msNumber
     )
 
-    if (context.eventName === 'pull_request') {
-      if (context.payload.action in ['closed'] && context.payload.pull_request.merged === 'true') {
-        core.debug('Update issue to state closed')
-        core.debug('Update Jira Task to state Testing')
-      } else if (context.payload.action in ['opened', 'synchronized']) {
-        core.debug('Update Jira Task to state In Progress')
-      }
-    }
-
     return ghNumber
   }
 
@@ -390,7 +399,7 @@ module.exports = class {
     for (const a of this.foundKeys) {
       const issueId = a.get('key')
 
-      if (this.jiraTransition !== null) {
+      if (this.jiraTransition) {
         const { transitions } = await this.Jira.getIssueTransitions(issueId)
         const transitionToApply = _.find(transitions, (t) => {
           if (t.id === this.jiraTransition) return true
@@ -398,14 +407,14 @@ module.exports = class {
         })
 
         if (!transitionToApply) {
-          core.warning('Please specify transition name or transition id.')
-          core.warning('Possible transitions:')
+          core.debug('Please specify transition name or transition id.')
+          core.debug('Possible transitions:')
           transitions.forEach((t) => {
-            core.warning(`{ id: ${t.id}, name: ${t.name} } transitions issue to '${t.to.name}' status.`)
+            core.debug(`{ id: ${t.id}, name: ${t.name} } transitions issue to '${t.to.name}' status.`)
           })
         }
 
-        core.info(`Selected transition:${JSON.stringify(transitionToApply, null, 4)}`)
+        core.debug(`Selected transition:${JSON.stringify(transitionToApply, null, 4)}`)
 
         await this.Jira.transitionIssue(issueId, {
           transition: {
@@ -416,8 +425,8 @@ module.exports = class {
       const transitionedIssue = await this.Jira.getIssue(issueId)
       const statusName = _.get(transitionedIssue, 'fields.status.name')
 
-      core.info(`Jira ${issueId} status is: ${statusName}.`)
-      core.info(`Link to issue: ${this.config.baseUrl}/browse/${issueId}`)
+      core.debug(`Jira ${issueId} status is: ${statusName}.`)
+      core.debug(`Link to issue: ${this.config.baseUrl}/browse/${issueId}`)
       a.set('status', statusName)
     }
   }
