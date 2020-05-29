@@ -80,7 +80,7 @@ function parseArgs () {
     GitHubMilestones: core.getInput('generate-github-milestones') === 'true',
     returns: core.getInput('returns') || 'first',
     updatePRTitle: core.getInput('standardize-pr-title') === 'true',
-
+    jiraTransition: core.getInput('jira-transition'),
   }
 }
 

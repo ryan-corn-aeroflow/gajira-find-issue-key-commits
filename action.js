@@ -56,6 +56,7 @@ module.exports = class {
     this.commitMessageList = null
     this.foundKeys = null
     this.githubIssues = []
+    this.jiraTransition = argv.jiraTransition
 
     this.github = new github.GitHub(argv.githubToken) || null
 
@@ -385,8 +386,44 @@ module.exports = class {
     return this.foundKeys
   }
 
+  async transitionIssues () {
+    for (const a of this.foundKeys) {
+      const issueId = a.get('key')
+
+      if (this.jiraTransition !== null) {
+        const { transitions } = await this.Jira.getIssueTransitions(issueId)
+        const transitionToApply = _.find(transitions, (t) => {
+          if (t.id === this.jiraTransition) return true
+          if (t.name.toLowerCase() === this.jiraTransition.toLowerCase()) return true
+        })
+
+        if (!transitionToApply) {
+          core.warning('Please specify transition name or transition id.')
+          core.warning('Possible transitions:')
+          transitions.forEach((t) => {
+            core.warning(`{ id: ${t.id}, name: ${t.name} } transitions issue to '${t.to.name}' status.`)
+          })
+        }
+
+        core.info(`Selected transition:${JSON.stringify(transitionToApply, null, 4)}`)
+
+        await this.Jira.transitionIssue(issueId, {
+          transition: {
+            id: transitionToApply.id,
+          },
+        })
+      }
+      const transitionedIssue = await this.Jira.getIssue(issueId)
+      const statusName = _.get(transitionedIssue, 'fields.status.name')
+
+      core.info(`Jira ${issueId} status is: ${statusName}.`)
+      core.info(`Link to issue: ${this.config.baseUrl}/browse/${issueId}`)
+      a.set('status', statusName)
+    }
+  }
+
   async formattedIssueList () {
-    return this.foundKeys.map(a => `*  [${a.get('key')}](${this.jiraUrl}/browse/${a.get('key')}) ${a.get('summary')} (Fix: #${a.get('ghNumber')})`).join('\n')
+    return this.foundKeys.map(a => `*  **[${a.get('key')}](${this.jiraUrl}/browse/${a.get('key')})** [${a.get('status', 'Jira Status Unknown')}] ${a.get('summary')} (Fix: #${a.get('ghNumber')})`).join('\n')
   }
 
   async outputReleaseNotes () {
@@ -399,8 +436,8 @@ module.exports = class {
     const issues = await this.getJiraKeysFromGitRange()
 
     if (issues) {
+      await this.transitionIssues()
       await this.updatePullRequestBody(startJiraToken, endJiraToken)
-
       await this.outputReleaseNotes()
 
       return issues
