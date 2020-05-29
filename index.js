@@ -79,7 +79,12 @@ function parseArgs () {
     GitHubMilestones: core.getInput('generate-github-milestones') === 'true',
     returns: core.getInput('returns') || 'first',
     updatePRTitle: core.getInput('standardize-pr-title') === 'true',
-    jiraTransition: core.getInput('jira-transition'),
+    transitionChain: core.getInput('jira-transition-chain'),
+    transitionOnNewBranch: core.getInput('jira-transition-on-new-branch'),
+    transitionOnPrOpen: core.getInput('jira-transition-on-pr-open'),
+    transitionOnPrApproval: core.getInput('jira-transition-on-pr-approval'),
+    transitionOnPrMerge: core.getInput('jira-transition-on-pr-merge'),
+
   }
 }
 
