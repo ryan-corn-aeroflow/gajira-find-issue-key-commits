@@ -177,7 +177,7 @@ module.exports = class {
 
       const issueKeys = this.foundKeys.map(a => a.get('key'))
 
-      if (issueKeys) {
+      if (Array.isArray(issueKeys)) {
         try {
           const re = /(?:\[)?(?<issues>(?:(?:[\w]{2,8})(?:[-_ ])(?:[\d]{3,5})(?:[, ]+)?)+)(?:[-:_ \]]+)(?<title>.*)?/
 
@@ -192,15 +192,16 @@ module.exports = class {
         }
       }
     }
+    if (issues) {
+      const bodyUpdate = await this.updateStringByToken(startToken, endToken, body, text)
 
-    const bodyUpdate = await this.updateStringByToken(startToken, endToken, body, text)
-
-    await this.github.pulls.update({
-      ...context.repo,
-      title: newTitle,
-      body: bodyUpdate,
-      pull_number: number,
-    })
+      await this.github.pulls.update({
+        ...context.repo,
+        title: newTitle,
+        body: bodyUpdate,
+        pull_number: number,
+      })
+    }
   }
 
   async createOrUpdateGHIssue (issueKey, issueTitle, issueBody, milestoneNumber) {
