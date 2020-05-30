@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 const _ = require('lodash')
 const core = require('@actions/core')
 const github = require('@actions/github')
@@ -399,28 +400,27 @@ module.exports = class {
     for (const a of this.foundKeys) {
       const issueId = a.get('key')
 
-      if (this.jiraTransition) {
+      if (this.jiraTransition && this.transitionChain) {
         const { transitions } = await this.Jira.getIssueTransitions(issueId)
-        const transitionToApply = _.find(transitions, (t) => {
-          if (t.id === this.jiraTransition) return true
-          if (t.name.toLowerCase() === this.jiraTransition.toLowerCase()) return true
-        })
+        const idxJT = this.transitionChain.indexOf(this.jiraTransition)
 
-        if (!transitionToApply) {
-          core.debug('Please specify transition name or transition id.')
-          core.debug('Possible transitions:')
-          transitions.forEach((t) => {
-            core.debug(`{ id: ${t.id}, name: ${t.name} } transitions issue to '${t.to.name}' status.`)
+        for (let i = 0; i < idxJT; i++) {
+          const link = this.transitionChain[i]
+
+          const transitionToApply = _.find(transitions, (t) => {
+            if (t.id === link) return true
+            if (t.name.toLowerCase() === link.toLowerCase()) return true
           })
+
+          if (transitionToApply) {
+            console.log(`Applying transition:${JSON.stringify(transitionToApply, null, 4)}`)
+            await this.Jira.transitionIssue(issueId, {
+              transition: {
+                id: transitionToApply.id,
+              },
+            })
+          }
         }
-
-        core.debug(`Selected transition:${JSON.stringify(transitionToApply, null, 4)}`)
-
-        await this.Jira.transitionIssue(issueId, {
-          transition: {
-            id: transitionToApply.id,
-          },
-        })
       }
       const transitionedIssue = await this.Jira.getIssue(issueId)
       const statusName = _.get(transitionedIssue, 'fields.status.name')
