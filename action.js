@@ -157,14 +157,13 @@ module.exports = class {
   }
 
   async updatePullRequestBody (startToken, endToken) {
-    const issues = await this.formattedIssueList()
-    const text = `### Linked Jira Issues:\n\n${issues}\n`
-
-    if (this.githubEvent.pull_request === null && context.payload.pull_request === null) {
+    if (!this.githubEvent.pull_request && !context.payload.pull_request) {
       core.debug(`Skipping pull request update, pull_request not found in current github context, or received event`)
 
       return
     }
+    const issues = await this.formattedIssueList()
+    const text = `### Linked Jira Issues:\n\n${issues}\n`
 
     const { number, body, title } = this.githubEvent.pull_request || context.payload.pull_request
 
