@@ -10,24 +10,22 @@ const Action = require('./action')
 const githubEvent = require(process.env.GITHUB_EVENT_PATH)
 const config = YAML.parse(fs.readFileSync(configPath, 'utf8'))
 
-async function writeKey(result) {
-  console.log(`Detected issueKey: ${result.issue}`)
-  console.log(`Saving ${result.issue} to ${cliConfigPath}`)
-  console.log(`Saving ${result.issue} to ${configPath}`)
+async function writeKey (result) {
+  core.debug(`Detected issueKey: ${result.issue}`)
+  core.debug(`Saving ${result.issue} to ${cliConfigPath}`)
+  core.debug(`Saving ${result.issue} to ${configPath}`)
 
   // Expose created issue's key as an output
 
-
   const yamledResult = YAML.stringify(result)
   const extendedConfig = Object.assign({}, config, result)
-
 
   fs.writeFileSync(configPath, YAML.stringify(extendedConfig))
 
   return fs.appendFileSync(cliConfigPath, yamledResult)
 }
 
-async function exec() {
+async function exec () {
   try {
     const result = await new Action({
       githubEvent,
@@ -36,10 +34,10 @@ async function exec() {
     }).execute()
 
     if (result) {
-      console.log(`Result is returned. ${result.toString()}`)
+      core.debug(`Result is returned. ${result.toString()}`)
       if (Array.isArray(result)) {
-        console.log('Result is an array')
-        let outputIssues = new Array()
+        core.debug('Result is an array')
+        const outputIssues = []
 
         for (const item of result) {
           await writeKey(item)
@@ -47,30 +45,30 @@ async function exec() {
         }
 
         core.setOutput('issues', outputIssues.join(','))
+
         return
-
-      } else {
-        console.log('Result is not an array')
-        core.setOutput('issue', result.issue)
-        return await writeKey(result)
-
       }
+      core.debug('Result is not an array')
+      core.setOutput('issue', result.issue)
+
+      return await writeKey(result)
     }
 
-    console.log('No issue keys found.')
+    core.debug('No issueKeys found.')
+    core.setNeutral()
   } catch (error) {
     core.setFailed(error.toString())
   }
 }
 
-function parseArgs() {
+function parseArgs () {
   return {
     string: core.getInput('string') || config.string,
     from: core.getInput('from'),
     github_token: core.getInput('github-token'),
     head_ref: core.getInput('head-ref'),
     base_ref: core.getInput('base-ref'),
-    gist_private: core.getInput('gist-private') && core.getInput('gist-private') == 'true' ? true : false,
+    gist_private: !!(core.getInput('gist-private') && core.getInput('gist-private') === 'true'),
     gist_name: core.getInput('create-gist-output-named'),
   }
 }
