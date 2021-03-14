@@ -4,13 +4,17 @@ const core = require('@actions/core')
 
 const cliConfigPath = `${process.env.HOME}/.jira.d/config.yml`
 const configPath = `${process.env.HOME}/jira/config.yml`
+
+core.debug('Requiring Action')
 const Action = require('./action')
 
+core.debug('Requiring Github Event Path')
 // eslint-disable-next-line import/no-dynamic-require
-const githubEvent = require(process.env.GITHUB_EVENT_PATH)
+const githubEvent = process.env.GITHUB_EVENT_PATH ? require(process.env.GITHUB_EVENT_PATH) : []
 const config = YAML.parse(fs.readFileSync(configPath, 'utf8'))
 
 async function writeKey (result) {
+  if (!result) { return }
   core.debug(`Detected issueKey: ${result.issue}`)
   core.debug(`Saving ${result.issue} to ${cliConfigPath}`)
   core.debug(`Saving ${result.issue} to ${configPath}`)
@@ -34,14 +38,14 @@ async function exec () {
     }).execute()
 
     if (result) {
-      core.debug(`Result is returned. ${result.toString()}`)
+      core.debug(`Result is returned:\n${JSON.stringify(result)}`)
       if (Array.isArray(result)) {
         core.debug('Result is an array')
         const outputIssues = []
 
         for (const item of result) {
-          await writeKey(item)
-          outputIssues.push(item.issue)
+          await writeKey({ issue: item.key })
+          outputIssues.push(item.key)
         }
 
         core.setOutput('issues', outputIssues.join(','))

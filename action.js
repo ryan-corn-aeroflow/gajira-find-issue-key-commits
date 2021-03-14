@@ -1,6 +1,6 @@
 const _ = require('lodash')
 const core = require('@actions/core')
-const Octokit = require('@octokit/rest')
+const { Octokit } = require('@octokit/rest')
 const Jira = require('./common/net/Jira')
 
 const issueIdRegEx = /([a-zA-Z0-9]+-[0-9]+)/g
