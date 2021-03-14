@@ -139,8 +139,9 @@ module.exports = class {
 
   preprocessString(str) {
     _.templateSettings.interpolate = /{{([\s\S]+?)}}/g
-    const tmpl = _.template(str)
+
     try {
+      const tmpl = _.template(str)
       return tmpl({ event: this.githubEvent })
     } catch (error) {
       console.error(error)
