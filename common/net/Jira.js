@@ -11,18 +11,18 @@ class Jira {
     this.email = email
   }
 
-  async createIssue (body) {
+  async createIssue (body, version='2') {
     return this.fetch('createIssue',
-      { pathname: '/rest/api/3/issue' },
+      { pathname: `/rest/api/${version}/issue` },
       { method: 'POST', body })
   }
 
-  async getIssue (issueId, query = {}) {
+  async getIssue (issueId, query = {}, version='2') {
     const { fields = [], expand = [] } = query
 
     try {
       const res = await this.fetch('getIssue', {
-        pathname: `/rest/api/3/issue/${issueId}`,
+        pathname: `/rest/api/${version}/issue/${issueId}`,
         query: {
           fields: fields.join(','),
           expand: expand.join(','),
@@ -39,17 +39,17 @@ class Jira {
     }
   }
 
-  async getIssueTransitions (issueId) {
+  async getIssueTransitions (issueId, version='2') {
     return this.fetch('getIssueTransitions', {
-      pathname: `/rest/api/3/issue/${issueId}/transitions`,
+      pathname: `/rest/api/${version}/issue/${issueId}/transitions`,
     }, {
       method: 'GET',
     })
   }
 
-  async transitionIssue (issueId, data) {
+  async transitionIssue (issueId, data, version='3') {
     return this.fetch('transitionIssue', {
-      pathname: `/rest/api/3/issue/${issueId}/transitions`,
+      pathname: `/rest/api/${version}/issue/${issueId}/transitions`,
     }, {
       method: 'POST',
       body: data,
