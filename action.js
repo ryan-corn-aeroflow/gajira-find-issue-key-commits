@@ -95,14 +95,14 @@ module.exports = class {
     }
     // Make the array Unique
     const uniqueKeys = [...new Set(fullArray)]
-
+    console.log(`Unique Keys: ${uniqueKeys}\n`)
     // Verify that the strings that look like key match real Jira keys
     for (const issueKey of uniqueKeys) {
       const issue = await this.Jira.getIssue(issueKey)
       if (issue)
         this.foundKeys.push(issue)
     }
-
+    console.log(`Found Jira Keys: ${this.foundKeys}\n`)
     return this.foundKeys
   }
 
@@ -115,6 +115,10 @@ module.exports = class {
 
     const template = eventTemplates[this.argv.from] || this.argv._.join(' ')
     const extractString = this.preprocessString(template)
+    if (!extractString) {
+      core.warning(`The event type ${this.githubEvent} is not compatible with this usage`)
+      return
+    }
     const match = extractString.match(issueIdRegEx)
 
     if (!match) {
@@ -135,7 +139,14 @@ module.exports = class {
   preprocessString(str) {
     _.templateSettings.interpolate = /{{([\s\S]+?)}}/g
     const tmpl = _.template(str)
+    try {
+      return tmpl({ event: this.githubEvent })
+    } catch (error) {
+      console.error(error)
+      return
+    }
 
-    return tmpl({ event: this.githubEvent })
   }
+
+
 }

@@ -37,16 +37,22 @@ async function exec() {
 
     if (result) {
       if (Array.isArray(result)) {
+
         let outputIssues = new Array()
 
         for (const item of result) {
           await writeKey(item)
           outputIssues.push(item.issue)
         }
+
         core.setOutput('issues', outputIssues.join(','))
+        return
+        
       } else {
+
         core.setOutput('issue', result.issue)
         return await writeKey(result)
+
       }
     }
 
