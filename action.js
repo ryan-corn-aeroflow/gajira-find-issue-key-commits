@@ -18,8 +18,8 @@ module.exports = class {
       token: config.token,
       email: config.email,
     })
-    core.debug(`Config found: ${JSON.dumps(config)}`)
-    core.debug(`Args found: ${JSON.dumps(argv)}`)
+    core.debug(`Config found: ${JSON.stringify(config)}`)
+    core.debug(`Args found: ${JSON.stringify(argv)}`)
     this.config = config
     this.argv = argv
     this.githubEvent = githubEvent
