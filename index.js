@@ -15,9 +15,9 @@ const config = YAML.parse(fs.readFileSync(configPath, 'utf8'))
 
 async function writeKey (result) {
   if (!result) { return }
-  core.debug(`Detected issueKey: ${result.issue}`)
-  core.debug(`Saving ${result.issue} to ${cliConfigPath}`)
-  core.debug(`Saving ${result.issue} to ${configPath}`)
+  core.debug(`Detected issueKey: ${result.get('key')}`)
+  core.debug(`Saving ${result.get('key')} to ${cliConfigPath}`)
+  core.debug(`Saving ${result.get('key')} to ${configPath}`)
 
   // Expose created issue's key as an output
 
@@ -44,8 +44,8 @@ async function exec () {
         const outputIssues = []
 
         for (const item of result) {
-          await writeKey({ issue: item.key })
-          outputIssues.push(item.key)
+          await writeKey({ issue: item.get('key') })
+          outputIssues.push(item.get('key'))
         }
 
         core.setOutput('issues', outputIssues.join(','))
@@ -53,7 +53,7 @@ async function exec () {
         return
       }
       core.debug('Result is not an array')
-      core.setOutput('issue', result.issue)
+      core.setOutput('issue', result.get('key'))
 
       return await writeKey(result)
     }
