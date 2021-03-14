@@ -173,21 +173,19 @@ module.exports = class {
       head: this.head_ref,
     })
 
-    core.debug(`List of commits found: ${JSON.stringify(commits)}`)
     if (!commits || !commits.data) { return }
-
     const fullArray = []
 
     match = this.head_ref.match(issueIdRegEx)
     if (match) {
       for (const issueKey of match) { fullArray.push(issueKey) }
     }
-    for (const commit of commits.data.commits) {
-      if (commit.message) {
-        match = commit.message.match(issueIdRegEx)
+    for (const item of commits.data.commits) {
+      if (item.commit && item.commit.message) {
+        match = item.commit.message.match(issueIdRegEx)
         if (match) {
           for (const issueKey of match) {
-            core.debug(`Jira key regex found ${issueKey} in: ${commit.message}`)
+            core.debug(`Jira key regex found ${issueKey} in: ${item.commit.message}`)
             fullArray.push(issueKey)
           }
         }
