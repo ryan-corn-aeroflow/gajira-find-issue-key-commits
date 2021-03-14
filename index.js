@@ -66,13 +66,19 @@ async function exec () {
 }
 
 function parseArgs () {
+  const fromList = ['commits', 'pull_request', 'branch']
+
   return {
     string: core.getInput('string') || config.string,
-    from: core.getInput('from'),
+    from: fromList.includes(core.getInput('from')) ? core.getInput('from') : 'commits',
     githubToken: core.getInput('github-token'),
-    head_ref: core.getInput('head-ref'),
-    base_ref: core.getInput('base-ref'),
-    createIssue: core.getInput('create-github-issue') === 'true',
+    headRef: core.getInput('head-ref'),
+    baseRef: core.getInput('base-ref'),
+    includeMergeMessages: core.getInput('include-merge-messages') === 'true',
+    GitHubIssues: core.getInput('generate-github-issues') === 'true',
+    GitHubMilestones: core.getInput('generate-github-milestones') === 'true',
+    returns: core.getInput('returns') || 'first',
+
   }
 }
 
