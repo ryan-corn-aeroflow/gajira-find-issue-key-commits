@@ -24,16 +24,13 @@ module.exports = class {
     this.githubEvent = githubEvent
     this.head_ref = argv.head_ref
     this.base_ref = argv.base_ref
-    this.gist_private = argv.gist_private
     this.github = null
-    this.createGist = false
+    this.createIssue = argv.createIssue
     this.commitMessageList = null
     this.foundKeys = null
 
-    if (argv.github_token && (argv.gist_name || (this.base_ref && this.head_ref))) {
-      this.github = new Octokit({ auth: `token ${argv.github_token}` })
-
-      if (argv.gist_name) this.createGist = true
+    if (argv.githubToken && (argv.createIssue || (this.base_ref && this.head_ref))) {
+      this.github = new Octokit({ auth: `token ${argv.githubToken}` })
     }
   }
 
@@ -54,7 +51,110 @@ module.exports = class {
     throw new Error('this.repo requires a GITHUB_REPOSITORY environment variable like \'owner/repo\'')
   }
 
-  async getJiraKeysFromGit () {
+  async findGithubMilestone (issueMilestone) {
+    const milestones = await this.github.issues.listMilestonesForRepo({
+      ...this.repo,
+      state: 'all',
+    })
+
+    for (const element of milestones.data) {
+      if (element.title === issueMilestone.toString()) {
+        core.debug(`Existing milestone found: ${element.title}`)
+
+        return element
+      }
+    }
+    core.debug(`Existing milestone not found.`)
+  }
+
+  async createOrUpdateMilestone (issueMilestone, issueMilestoneDueDate, issueMilestoneDescription) {
+    let milestone = await this.findGithubMilestone(issueMilestone)
+
+    if (milestone) {
+      if (milestone.state === 'closed') {
+        this.github.issues.updateMilestone({
+          ...this.repo,
+          milestone_number: milestone.number,
+          description: issueMilestoneDescription,
+          state: 'open',
+          due_on: issueMilestoneDueDate,
+        })
+      }
+
+      return milestone.number
+    }
+
+    milestone = await this.github.issues.createMilestone({
+      ...this.repo,
+      title: `${issueMilestone}`,
+      description: issueMilestoneDescription,
+      state: 'open',
+      // YYYY-MM-DDTHH:MM:SSZ
+      due_on: issueMilestoneDueDate,
+    })
+
+    return milestone.number
+  }
+
+  async createOrUpdateGHIssue (issueKey, issueTitle, issueBody, issueAssignee, milestoneNumber) {
+    const issues = await this.github.issues.listForRepo({
+      ...this.repo,
+      state: 'open',
+    })
+    let issueNumber = null
+
+    for (const i in issues.data) {
+      if (!i.pull_request && i.title.contains(issueKey)) {
+        issueNumber = i.issue_number
+        break
+      }
+    }
+
+    let issue = null
+
+    if (issueNumber) {
+      issue = await this.github.issues.update({
+        title: `${issueKey}: ${issueTitle}`,
+        body: issueBody,
+        assignees: issueAssignee ? [issueAssignee] : null,
+        milestone: milestoneNumber,
+      })
+    } else {
+      issue = await this.github.issues.create({
+        title: `${issueKey}: ${issueTitle}`,
+        body: issueBody,
+        assignees: issueAssignee ? [issueAssignee] : null,
+        milestone: milestoneNumber,
+      })
+    }
+
+    core.debug(`Github Issue: ${JSON.stringify(issue)}`)
+  }
+
+  async jiraToGitHub (jiraIssue, state = 'open') {
+    // Get or set milestone from issue
+    // msNumber = await createOrUpdateMilestone (
+    // jiraIssue.sprint,
+    // jiraIssue.DueDate,
+    // `Jira project ${jiraIssue.project} sprint ${jiraIssue.sprint}`
+    // )
+    // set or update github issue
+    // ghIssue = await createOrUpdateGHIssue (
+    // jiraIssue.key,
+    //  jiraIssue.title,
+    //  jiraIssue.body,
+    //  this.githubEvent.author,
+    //  msNumber)
+    // if (this.githubEvent.pull_request.event == closed && type == merged) {
+    // Update issue to state closed
+    // update Jira Task to state 'Testing'
+    // } else if (this.githubEvent.pull_request.event in ['opened', 'synchronized']) {
+    // update Jira Task to state 'In Progress'
+    // }
+
+  }
+
+  async getJiraKeysFromGitRange () {
     let match = null
 
     if (!(this.base_ref && this.head_ref)) {
@@ -82,7 +182,10 @@ module.exports = class {
       if (commit.message) {
         match = commit.message.match(issueIdRegEx)
         if (match) {
-          for (const issueKey of match) { fullArray.push(issueKey) }
+          for (const issueKey of match) {
+            core.debug(`Jira key regex found ${issueKey} in: ${commit.message}`)
+            fullArray.push(issueKey)
+          }
         }
       }
     }
@@ -95,7 +198,10 @@ module.exports = class {
     for (const issueKey of uniqueKeys) {
       const issue = await this.Jira.getIssue(issueKey)
 
-      if (issue) { this.foundKeys.push(issue) }
+      if (issue) {
+        core.debug(`Jira issue: ${JSON.stringify(issue)}`)
+        this.foundKeys.push(issue)
+      }
     }
     core.debug(`Found Jira Keys: ${this.foundKeys}\n`)
 
@@ -103,7 +209,7 @@ module.exports = class {
   }
 
   async execute () {
-    const issues = await this.getJiraKeysFromGit()
+    const issues = await this.getJiraKeysFromGitRange()
 
     if (issues) { return issues }
 
@@ -127,6 +233,8 @@ module.exports = class {
       const issue = await this.Jira.getIssue(issueKey)
 
       if (issue) {
+        core.debug(`Jira issue: ${JSON.stringify(issue)}`)
+
         return { issue: issue.key }
       }
     }

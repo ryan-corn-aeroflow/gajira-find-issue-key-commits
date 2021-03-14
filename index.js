@@ -65,11 +65,10 @@ function parseArgs () {
   return {
     string: core.getInput('string') || config.string,
     from: core.getInput('from'),
-    github_token: core.getInput('github-token'),
+    githubToken: core.getInput('github-token'),
     head_ref: core.getInput('head-ref'),
     base_ref: core.getInput('base-ref'),
-    gist_private: !!(core.getInput('gist-private') && core.getInput('gist-private') === 'true'),
-    gist_name: core.getInput('create-gist-output-named'),
+    createIssue: core.getInput('create-github-issue') === 'true',
   }
 }
 
