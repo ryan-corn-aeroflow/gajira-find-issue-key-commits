@@ -7,6 +7,9 @@ const J2M = require('./lib/J2M')
 
 const issueIdRegEx = /([a-zA-Z0-9]+-[0-9]+)/g
 
+const startJiraToken = 'JIRA-ISSUE-TEXT-START'
+const endJiraToken = 'JIRA-ISSUE-TEXT-END'
+
 const eventTemplates = {
   branch: '{{event.ref}}',
   commits: "{{event.commits.map(c=>c.message).join(' ')}}",
@@ -31,6 +34,7 @@ module.exports = class {
     this.createIssue = argv.createIssue
     this.commitMessageList = null
     this.foundKeys = null
+    this.githubIssues = []
 
     if (Object.prototype.hasOwnProperty.call(githubEvent, 'pull_request')) {
       this.headRef = githubEvent.pull_request.head.ref || null
@@ -90,6 +94,39 @@ module.exports = class {
     return milestone.number
   }
 
+  async updateStringByToken (startToken, endToken, fullText, insertText) {
+    const regex = new RegExp(`(?<start>\\[\\/]: \\/ "${startToken}"\\n)(?<text>(?:.|\\s)+)(?<end>\\n\\[\\/]: \\/ "${endToken}"(?:\\s)?)`, 'gm')
+
+    if (regex.test(fullText)) {
+      return fullText.replace(regex, `$1${insertText}$3`)
+    }
+
+    return `${fullText}\n[/]: / "${startToken}"\n${insertText}\n[/]: / "${endToken}"`
+  }
+
+  async updatePullRequestBody (text, startToken, endToken) {
+    if (this.githubEvent.pull_request === null && context.payload.pull_request === null) {
+      core.debug(`Skipping pull request update, pull_request not found in current github context, or received event`)
+
+      return
+    }
+
+    const { number, body } = this.githubEvent.pull_request || context.payload.pull_request
+
+    core.debug(`Updating PR number ${number}`)
+    core.debug(`With text:\n ${text}`)
+
+    const bodyUpdate = await this.updateStringByToken(startToken, endToken, body, text)
+
+    const pr = await this.github.pulls.update({
+      ...context.repo,
+      body: bodyUpdate,
+      pull_number: number,
+    })
+
+    core.debug(`Final text:\n ${pr.data.body}`)
+  }
+
   async createOrUpdateGHIssue (issueKey, issueTitle, issueBody, issueAssignee, milestoneNumber) {
     core.debug(`Getting list of issues`)
     const issues = await this.github.issues.listForRepo({
@@ -130,6 +167,8 @@ module.exports = class {
         milestone: milestoneNumber,
       })
     }
+
+    this.githubIssues.push(issue)
 
     core.debug(`Github Issue: ${YAML.stringify(issue)}`)
   }
@@ -273,6 +312,15 @@ module.exports = class {
     const issues = await this.getJiraKeysFromGitRange()
 
     if (issues) {
+      const jIssues = this.foundKeys.map(a => `[${a.get('key')})]`)
+      const ghIssues = this.githubIssues.map(a => `Resolves: #${a.get('issue_number')})`)
+      let text = ''
+
+      text += `**Linked Jira Issues: ${jIssues}**\n\n`
+      text += '*GitHub Issues Mirror the Jira Issues, and will be closed when this PR is merged into the default branch.*\n'
+      text += `${ghIssues}\n`
+      await this.updatePullRequestBody(text, startJiraToken, endJiraToken)
+
       return issues
     }
 
