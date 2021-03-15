@@ -51,6 +51,7 @@ module.exports = class {
     this.githubEvent = githubEvent || context.payload
     this.github = null
     this.createIssue = argv.createIssue
+    this.updatePRTitle = argv.updatePRTitle
     this.commitMessageList = null
     this.foundKeys = null
     this.githubIssues = []
@@ -151,18 +152,18 @@ module.exports = class {
 
     let newTitle = title.trim()
 
-    if (this.argv.updatePRTitle) {
-      core.debug('Updating PR Title')
+    if (this.updatePRTitle) {
       core.debug(`Current PR Title: ${title}`)
 
       const issueKeys = this.foundKeys.map(a => a.get('key'))
 
       if (issueKeys) {
         try {
-          const re = /(?:(?:\n|\[|\s)+)?(?<issues>(?:(?:[a-zA-Z]{0,8})(?:[ \-_])(?:[0-9]{3,5})(?:(?:,| )+)?)+)?(?:\]|:)?(?:[ \-_|\]]+)?(?<title>.*)?$/gm
+          const re = /(?:(?:\n|\[|\s)+)?(?<issues>(?:(?:[a-zA-Z]{0,8})(?:[ \-_])(?:[0-9]{3,5})(?:(?:,|\s)+)?)+)?(?:\]|:)?(?:[\s\-_|\]]+)?(?<title>.*)?/g
 
-          core.debug(`The title match found: ${newTitle.match(re)}`)
           const { groups } = newTitle.match(re)
+
+          core.debug(`The title match found: ${YAML.stringify(groups)}`)
 
           newTitle = `${issueKeys.join(', ')}: ${upperCaseFirst(groups.title.trim())}`.slice(0, 71)
           core.setOutput('title', `${upperCaseFirst(groups.title.trim())}`)
