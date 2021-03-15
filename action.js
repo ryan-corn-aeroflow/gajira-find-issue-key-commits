@@ -133,7 +133,7 @@ module.exports = class {
       return fullText.replace(regex, `$1${insertText}$3`)
     }
 
-    return `${fullText}\n[/]: / "${startToken}"\n${insertText}\n[/]: / "${endToken}"`
+    return `${fullText.trim()}\n\n[/]: / "${startToken}"\n${insertText}\n[/]: / "${endToken}"`
   }
 
   async updatePullRequestBody (startToken, endToken) {
