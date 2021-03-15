@@ -138,7 +138,7 @@ module.exports = class {
     core.debug(`Checking for ${issueKey} in list of issues`)
     for (const i of issues.data) {
       if (!i.pull_request && i.title && i.title.includes(issueKey)) {
-        issueNumber = i.issue_number
+        issueNumber = i.number
         break
       }
     }
@@ -169,12 +169,13 @@ module.exports = class {
 
     this.githubIssues.push(issue)
 
-    core.debug(`Github Issue: ${YAML.stringify(issue.issue_number)}`)
+    core.debug(`Github Issue: ${YAML.stringify(issue.number)}`)
   }
 
   async jiraToGitHub (jiraIssue) {
     // Get or set milestone from issue
     // for (let version of jiraIssue.fixVersions) {
+    core.debug(`JiraIssue is in project ${jiraIssue.get('project')} sprint ${jiraIssue.get('sprint')} and `)
 
     const msNumber = await this.createOrUpdateMilestone(
       jiraIssue.get('sprint') || null,
@@ -312,7 +313,7 @@ module.exports = class {
 
     if (issues) {
       const jIssues = this.foundKeys.map(a => `[${a.get('key')}]`)
-      const ghIssues = this.githubIssues.map(a => `Resolves: #${a.get('issue_number')})`)
+      const ghIssues = this.githubIssues.map(a => `Resolves: #${a.get('number')})`)
       let text = ''
 
       text += `**Linked Jira Issues: ${jIssues}**\n\n`
