@@ -112,16 +112,20 @@ module.exports = class {
     if (issueNumber) {
       core.debug(`Updating ${issueKey} with issue number ${issueNumber}`)
       issue = await this.github.issues.update({
+        ...context.repo,
         title: `${issueKey}: ${issueTitle}`,
         body: this.J2M.toM(issueBody),
+        assignees: [],
         // assignees: issueAssignee ? [issueAssignee] : null,
         milestone: milestoneNumber,
       })
     } else {
       core.debug(`Creating ${issueKey}`)
       issue = await this.github.issues.create({
+        ...context.repo,
         title: `${issueKey}: ${issueTitle}`,
         body: this.J2M.toM(issueBody),
+        assignees: [],
         // assignees: issueAssignee ? [issueAssignee] : null,
         milestone: milestoneNumber,
       })
