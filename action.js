@@ -303,7 +303,7 @@ module.exports = class {
           this.foundKeys.push(issueObject)
         }
         try {
-          this.jiraToGitHub(issueObject)
+          await this.jiraToGitHub(issueObject)
         } catch (error) {
           core.error(error)
         }
