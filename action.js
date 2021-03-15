@@ -118,13 +118,11 @@ module.exports = class {
 
     const bodyUpdate = await this.updateStringByToken(startToken, endToken, body, text)
 
-    const pr = await this.github.pulls.update({
+    await this.github.pulls.update({
       ...context.repo,
       body: bodyUpdate,
       pull_number: number,
     })
-
-    core.debug(`Final text:\n ${pr.data.body}`)
   }
 
   async createOrUpdateGHIssue (issueKey, issueTitle, issueBody, milestoneNumber) {
@@ -168,9 +166,11 @@ module.exports = class {
       })
     }
 
-    this.githubIssues.push(issue.data)
+    this.githubIssues.push(issue.data.number)
 
     core.debug(`Github Issue: \n${YAML.stringify(issue.data)}`)
+
+    return issue.data.number
   }
 
   async jiraToGitHub (jiraIssue) {
@@ -185,8 +185,7 @@ module.exports = class {
     )
 
     // set or update github issue
-
-    await this.createOrUpdateGHIssue(
+    const ghNumber = await this.createOrUpdateGHIssue(
       jiraIssue.get('key'),
       jiraIssue.get('summary'),
       jiraIssue.get('description'),
@@ -201,6 +200,8 @@ module.exports = class {
         core.debug('Update Jira Task to state In Progress')
       }
     }
+
+    return ghNumber
   }
 
   async getJiraKeysFromGitRange () {
@@ -259,7 +260,7 @@ module.exports = class {
       // and this can be converted to Markdown
       // TODO: Harass Atlassian about conversion between their own products
       const issue = await this.Jira.getIssue(issueKey, {}, '3')
-      const issueV2 = await this.Jira.getIssue(issueKey, { fields: ['description'] }, '2')
+      const issueV2 = await this.Jira.getIssue(issueKey, { fields: ['description', 'sprint'] }, '2')
       const issueObject = new Map()
 
       if (issue) {
@@ -300,12 +301,12 @@ module.exports = class {
           // issue.fields.comment.comments[]
           // issue.fields.worklog.worklogs[]
         } finally {
+          try {
+            issueObject.set('ghNumber', await this.jiraToGitHub(issueObject))
+          } catch (error) {
+            core.error(error)
+          }
           this.foundKeys.push(issueObject)
-        }
-        try {
-          await this.jiraToGitHub(issueObject)
-        } catch (error) {
-          core.error(error)
         }
       }
     }
@@ -323,7 +324,8 @@ module.exports = class {
       let text = ''
 
       text += `**Linked Jira Issues: ${jIssues}**\n\n`
-      text += '*GitHub Issues Mirror the Jira Issues, and will be closed when this PR is merged into the default branch.*\n'
+      text += '*The GitHub Issues below mirror the Jira Issues and will be closed*\n'
+      text += '*when this PR is merged into the default branch.*\n\n'
       text += `${ghIssues}\n`
       await this.updatePullRequestBody(text, startJiraToken, endJiraToken)
 
