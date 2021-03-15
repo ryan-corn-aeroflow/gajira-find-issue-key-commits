@@ -160,6 +160,8 @@ module.exports = class {
       if (issueKeys) {
         try {
           const re = /(?:(?:\n|\[|\s)+)?(?<issues>(?:(?:[a-zA-Z]{0,8})(?:[ \-_])(?:[0-9]{3,5})(?:(?:,| )+)?)+)?(?:\]|:)?(?:[ \-_|\]]+)?(?<title>.*)?$/gm
+
+          core.debug(`The title match found: ${newTitle.match(re)}`)
           const { groups } = newTitle.match(re)
 
           newTitle = `${issueKeys.join(', ')}: ${upperCaseFirst(groups.title.trim())}`.slice(0, 71)
@@ -382,9 +384,9 @@ module.exports = class {
   }
 
   async outputReleaseNotes () {
-    const issues = this.foundKeys.map(a => `*  [${a.get('key')}] ${a.get('summary')}\n`)
+    const issues = this.foundKeys.map(a => `*  [${a.get('key')}] ${a.get('summary')}`)
 
-    core.setOutput('notes', `### Release Notes:\n${issues}`)
+    core.setOutput('notes', `### Release Notes:\n\n${issues.join('\n')}`)
   }
 
   async execute () {
