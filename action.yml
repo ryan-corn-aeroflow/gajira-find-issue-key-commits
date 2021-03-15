@@ -72,6 +72,10 @@ inputs:
 
     default: 'false'
     required: false
+  jira-transition:
+      description: >
+        A transition name to update the JIRA Ticket to such as 'In Progress'
+      required: false
   github-token:
     description: GitHub Token used for authentication
     required: false
