@@ -5,19 +5,21 @@ const { format } = require('url')
 const client = require('./client')(serviceName)
 
 class Jira {
-  constructor ({ baseUrl, token, email }) {
+  constructor({ baseUrl, token, email }) {
     this.baseUrl = baseUrl
     this.token = token
     this.email = email
   }
 
-  async createIssue (body, version = '2') {
-    return this.fetch('createIssue',
+  async createIssue(body, version = '2') {
+    return this.fetch(
+      'createIssue',
       { pathname: `/rest/api/${version}/issue` },
-      { method: 'POST', body })
+      { method: 'POST', body },
+    )
   }
 
-  async getIssue (issueId, query = {}, version = '2') {
+  async getIssue(issueId, query = {}, version = '2') {
     const { fields = [], expand = [] } = query
 
     try {
@@ -39,26 +41,32 @@ class Jira {
     }
   }
 
-  async getIssueTransitions (issueId, version = '2') {
-    return this.fetch('getIssueTransitions', {
-      pathname: `/rest/api/${version}/issue/${issueId}/transitions`,
-    }, {
-      method: 'GET',
-    })
+  async getIssueTransitions(issueId, version = '2') {
+    return this.fetch(
+      'getIssueTransitions',
+      {
+        pathname: `/rest/api/${version}/issue/${issueId}/transitions`,
+      },
+      {
+        method: 'GET',
+      },
+    )
   }
 
-  async transitionIssue (issueId, data, version = '3') {
-    return this.fetch('transitionIssue', {
-      pathname: `/rest/api/${version}/issue/${issueId}/transitions`,
-    }, {
-      method: 'POST',
-      body: data,
-    })
+  async transitionIssue(issueId, data, version = '3') {
+    return this.fetch(
+      'transitionIssue',
+      {
+        pathname: `/rest/api/${version}/issue/${issueId}/transitions`,
+      },
+      {
+        method: 'POST',
+        body: data,
+      },
+    )
   }
 
-  async fetch (apiMethodName,
-    { host, pathname, query },
-    { method, body, headers = {} } = {}) {
+  async fetch(apiMethodName, { host, pathname, query }, { method, body, headers = {} } = {}) {
     const url = format({
       host: host || this.baseUrl,
       pathname,
@@ -78,7 +86,9 @@ class Jira {
     }
 
     if (headers.Authorization === undefined) {
-      headers.Authorization = `Basic ${Buffer.from(`${this.email}:${this.token}`).toString('base64')}`
+      headers.Authorization = `Basic ${Buffer.from(`${this.email}:${this.token}`).toString(
+        'base64',
+      )}`
     }
 
     // strong check for undefined
@@ -106,11 +116,7 @@ class Jira {
 
       delete state.req.headers
 
-      throw Object.assign(
-        new Error(`Jira API error: ${error}`),
-        state,
-        fields
-      )
+      throw Object.assign(new Error(`Jira API error: ${error}`), state, fields)
     }
 
     return state.res.body

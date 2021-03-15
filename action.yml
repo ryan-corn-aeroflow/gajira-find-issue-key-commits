@@ -17,7 +17,7 @@ inputs:
     default: first
     description: >
       Options can be: 'first', or 'all'
-      
+
       This variable controls both how many results are returned, 
       and how many results are processed.
 
@@ -37,7 +37,7 @@ inputs:
   base-ref:
     description: >
       The Git Base Ref to which commit messages will be collected up from.
-      If the base-ref is not included, 
+      If the base-ref is not included,
     required: false
   standardize-pr-title:
     description: >
@@ -65,7 +65,7 @@ inputs:
       If the Github issue doesn't exist, the GitHub issue is created.
 
       If 'generate-github-milestones' is 'true', then the GitHub issue is linked to the milestone.
-      
+
       If this action is triggered through a pull_request event, then when the pull_request
       is closed, and merged, the GitHub issues are also closed, by adding 'Resolves #<IssueNumber>' 
       syntax on the pull_request body
@@ -73,29 +73,29 @@ inputs:
     default: 'false'
     required: false
   jira-transition-chain:
-      description: >
-        A comma separated list of all allowed Jira Transitions in order
-      required: false
+    description: >
+      A comma separated list of all allowed Jira Transitions in order
+    required: false
   jira-transition-on-new-branch:
-      description: >
-        The name of the transition to apply when a new branch is created
-      required: false
+    description: >
+      The name of the transition to apply when a new branch is created
+    required: false
   jira-transition-on-pr-open:
-      description: >
-        The name of the transition to apply when a Pull Request is opened
-      required: false
+    description: >
+      The name of the transition to apply when a Pull Request is opened
+    required: false
   jira-transition-on-pr-approval:
-      description: >
-        The name of the transition to apply when a Pull Request is approved
-      required: false
+    description: >
+      The name of the transition to apply when a Pull Request is approved
+    required: false
   jira-transition-on-pr-merge:
-      description: >
-        The name of the transition to apply when a Pull Request is closed and merged
-      required: false
+    description: >
+      The name of the transition to apply when a Pull Request is closed and merged
+    required: false
   github-token:
     description: GitHub Token used for authentication
     required: false
-  
+
 outputs:
   issue:
     description: Key of the found issue

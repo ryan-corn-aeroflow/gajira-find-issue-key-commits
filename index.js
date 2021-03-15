@@ -9,12 +9,13 @@ core.debug('Requiring Action')
 const Action = require('./action')
 
 core.debug('Requiring Github Event Path')
-// eslint-disable-next-line import/no-dynamic-require
 const githubEvent = process.env.GITHUB_EVENT_PATH ? require(process.env.GITHUB_EVENT_PATH) : []
 const config = YAML.parse(fs.readFileSync(configPath, 'utf8'))
 
-async function writeKey (result) {
-  if (!result) { return }
+async function writeKey(result) {
+  if (!result) {
+    return
+  }
   core.debug(`Detected issueKey: ${result.get('key')}`)
   core.debug(`Saving ${result.get('key')} to ${cliConfigPath}`)
   core.debug(`Saving ${result.get('key')} to ${configPath}`)
@@ -22,14 +23,14 @@ async function writeKey (result) {
   // Expose created issue's key as an output
 
   const yamledResult = YAML.stringify(result)
-  const extendedConfig = Object.assign({}, config, result)
+  const extendedConfig = { ...config, ...result }
 
   fs.writeFileSync(configPath, YAML.stringify(extendedConfig))
 
   return fs.appendFileSync(cliConfigPath, yamledResult)
 }
 
-async function exec () {
+async function exec() {
   try {
     const result = await new Action({
       githubEvent,
@@ -65,7 +66,7 @@ async function exec () {
   }
 }
 
-function parseArgs () {
+function parseArgs() {
   const fromList = ['commits', 'pull_request', 'branch']
 
   return {
@@ -84,7 +85,6 @@ function parseArgs () {
     transitionOnPrOpen: core.getInput('jira-transition-on-pr-open'),
     transitionOnPrApproval: core.getInput('jira-transition-on-pr-approval'),
     transitionOnPrMerge: core.getInput('jira-transition-on-pr-merge'),
-
   }
 }
 

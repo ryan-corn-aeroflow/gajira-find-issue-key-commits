@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 const _ = require('lodash')
 const core = require('@actions/core')
 const github = require('@actions/github')
@@ -18,7 +17,7 @@ const eventTemplates = {
 
 const { context } = github
 
-async function getPreviousReleaseRef (octo) {
+async function getPreviousReleaseRef(octo) {
   if (!context.repository || !octo) {
     return
   }
@@ -26,19 +25,17 @@ async function getPreviousReleaseRef (octo) {
     ...context.repo,
   })
 
-  // eslint-disable-next-line camelcase
   const { tag_name } = releases.payload
 
-  // eslint-disable-next-line camelcase
   return tag_name
 }
 
-function upperCaseFirst (str) {
-  return str.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.substr(1))
+function upperCaseFirst(str) {
+  return str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1))
 }
 
 module.exports = class {
-  constructor ({ githubEvent, argv, config }) {
+  constructor({ githubEvent, argv, config }) {
     this.Jira = new Jira({
       baseUrl: config.baseUrl,
       token: config.token,
@@ -101,8 +98,10 @@ module.exports = class {
 
   // if (context.payload.action in ['closed'] && context.payload.pull_request.merged === 'true')
 
-  async findGithubMilestone (issueMilestone) {
-    if (!issueMilestone) { return }
+  async findGithubMilestone(issueMilestone) {
+    if (!issueMilestone) {
+      return
+    }
     const milestones = await this.github.issues.listMilestonesForRepo({
       ...context.repo,
       state: 'all',
@@ -118,8 +117,10 @@ module.exports = class {
     core.debug(`Existing milestone not found.`)
   }
 
-  async createOrUpdateMilestone (issueMilestone, issueMilestoneDueDate, issueMilestoneDescription) {
-    if (!issueMilestone) { return }
+  async createOrUpdateMilestone(issueMilestone, issueMilestoneDueDate, issueMilestoneDescription) {
+    if (!issueMilestone) {
+      return
+    }
     let milestone = await this.findGithubMilestone(issueMilestone)
 
     if (milestone) {
@@ -146,8 +147,11 @@ module.exports = class {
     return milestone.number
   }
 
-  async updateStringByToken (startToken, endToken, fullText, insertText) {
-    const regex = new RegExp(`(?<start>\\[\\/]: \\/ "${startToken}"\\n)(?<text>(?:.|\\s)+)(?<end>\\n\\[\\/]: \\/ "${endToken}"(?:\\s)?)`, 'gm')
+  async updateStringByToken(startToken, endToken, fullText, insertText) {
+    const regex = new RegExp(
+      `(?<start>\\[\\/]: \\/ "${startToken}"\\n)(?<text>(?:.|\\s)+)(?<end>\\n\\[\\/]: \\/ "${endToken}"(?:\\s)?)`,
+      'gm',
+    )
 
     if (regex.test(fullText)) {
       return fullText.replace(regex, `$1${insertText}$3`)
@@ -156,9 +160,11 @@ module.exports = class {
     return `${fullText.trim()}\n\n[/]: / "${startToken}"\n${insertText}\n[/]: / "${endToken}"`
   }
 
-  async updatePullRequestBody (startToken, endToken) {
+  async updatePullRequestBody(startToken, endToken) {
     if (!this.githubEvent.pull_request && !context.payload.pull_request) {
-      core.debug(`Skipping pull request update, pull_request not found in current github context, or received event`)
+      core.debug(
+        `Skipping pull request update, pull_request not found in current github context, or received event`,
+      )
 
       return
     }
@@ -175,7 +181,7 @@ module.exports = class {
     if (this.updatePRTitle) {
       core.debug(`Current PR Title: ${title}`)
 
-      const issueKeys = this.foundKeys.map(a => a.get('key'))
+      const issueKeys = this.foundKeys.map((a) => a.get('key'))
 
       if (Array.isArray(issueKeys)) {
         try {
@@ -204,7 +210,7 @@ module.exports = class {
     }
   }
 
-  async createOrUpdateGHIssue (issueKey, issueTitle, issueBody, milestoneNumber) {
+  async createOrUpdateGHIssue(issueKey, issueTitle, issueBody, milestoneNumber) {
     core.debug(`Getting list of issues`)
     const issues = await this.github.issues.listForRepo({
       ...context.repo,
@@ -252,15 +258,17 @@ module.exports = class {
     return issue.data.number
   }
 
-  async jiraToGitHub (jiraIssue) {
+  async jiraToGitHub(jiraIssue) {
     // Get or set milestone from issue
     // for (let version of jiraIssue.fixVersions) {
-    core.debug(`JiraIssue is in project ${jiraIssue.get('projectKey')} sprint ${jiraIssue.get('sprint')}`)
+    core.debug(
+      `JiraIssue is in project ${jiraIssue.get('projectKey')} sprint ${jiraIssue.get('sprint')}`,
+    )
 
     const msNumber = await this.createOrUpdateMilestone(
       jiraIssue.get('sprint') || null,
       jiraIssue.get('duedate'),
-      `Jira project ${jiraIssue.get('projectKey')} sprint ${jiraIssue.get('sprint')}`
+      `Jira project ${jiraIssue.get('projectKey')} sprint ${jiraIssue.get('sprint')}`,
     )
 
     // set or update github issue
@@ -268,13 +276,13 @@ module.exports = class {
       jiraIssue.get('key'),
       jiraIssue.get('summary'),
       jiraIssue.get('description'),
-      msNumber
+      msNumber,
     )
 
     return ghNumber
   }
 
-  async getJiraKeysFromGitRange () {
+  async getJiraKeysFromGitRange() {
     let match = null
 
     if (!(this.baseRef && this.headRef)) {
@@ -290,7 +298,9 @@ module.exports = class {
       head: this.headRef,
     })
 
-    if (!commits || !commits.data) { return }
+    if (!commits || !commits.data) {
+      return
+    }
     const fullArray = []
 
     const { title } = this.githubEvent.pull_request || context.payload.pull_request
@@ -299,13 +309,17 @@ module.exports = class {
       match = title.match(issueIdRegEx)
 
       if (match) {
-        for (const issueKey of match) { fullArray.push(issueKey) }
+        for (const issueKey of match) {
+          fullArray.push(issueKey)
+        }
       }
     }
 
     match = this.headRef.match(issueIdRegEx)
     if (match) {
-      for (const issueKey of match) { fullArray.push(issueKey) }
+      for (const issueKey of match) {
+        fullArray.push(issueKey)
+      }
     }
     for (const item of commits.data.commits) {
       if (item.commit && item.commit.message) {
@@ -313,7 +327,10 @@ module.exports = class {
         if (match) {
           let skipCommit = false
 
-          if ((item.commit.message.startsWith('Merge branch') || item.commit.message.startsWith('Merge pull'))) {
+          if (
+            item.commit.message.startsWith('Merge branch') ||
+            item.commit.message.startsWith('Merge pull')
+          ) {
             if (!this.argv.includeMergeMessages) {
               skipCommit = true
             }
@@ -328,7 +345,7 @@ module.exports = class {
       }
     }
     // Make the array Unique
-    const uniqueKeys = [...new Set(fullArray.map(a => a.toUpperCase()))]
+    const uniqueKeys = [...new Set(fullArray.map((a) => a.toUpperCase()))]
 
     core.debug(`Unique Keys: ${uniqueKeys}\n`)
     // Verify that the strings that look like key match real Jira keys
@@ -359,7 +376,9 @@ module.exports = class {
           core.debug(`Jira ${issue.key} statusCategory: ${issue.fields.status.statusCategory.name}`)
           if (Array.isArray(issue.fields.customfield_11306)) {
             // Assigned to
-            core.debug(`Jira ${issue.key} displayName: ${issue.fields.customfield_11306[0].displayName}`)
+            core.debug(
+              `Jira ${issue.key} displayName: ${issue.fields.customfield_11306[0].displayName}`,
+            )
           }
           issueObject.set('summary', issue.fields.summary)
           core.debug(`Jira ${issue.key} summary: ${issue.fields.summary}`)
@@ -390,13 +409,13 @@ module.exports = class {
         }
       }
     }
-    core.debug(`Found Jira Keys  : ${this.foundKeys.map(a => a.get('key'))}\n`)
-    core.debug(`Found GitHub Keys: ${this.foundKeys.map(a => a.get('ghNumber'))}\n`)
+    core.debug(`Found Jira Keys  : ${this.foundKeys.map((a) => a.get('key'))}\n`)
+    core.debug(`Found GitHub Keys: ${this.foundKeys.map((a) => a.get('ghNumber'))}\n`)
 
     return this.foundKeys
   }
 
-  async transitionIssues () {
+  async transitionIssues() {
     for (const a of this.foundKeys) {
       const issueId = a.get('key')
 
@@ -413,7 +432,7 @@ module.exports = class {
           })
 
           if (transitionToApply) {
-            console.log(`Applying transition:${JSON.stringify(transitionToApply, null, 4)}`)
+            core.info(`Applying transition:${JSON.stringify(transitionToApply, null, 4)}`)
             await this.Jira.transitionIssue(issueId, {
               transition: {
                 id: transitionToApply.id,
@@ -431,17 +450,25 @@ module.exports = class {
     }
   }
 
-  async formattedIssueList () {
-    return this.foundKeys.map(a => `*  **[${a.get('key')}](${this.jiraUrl}/browse/${a.get('key')})** [${a.get('status', 'Jira Status Unknown')}] ${a.get('summary')} (Fix: #${a.get('ghNumber')})`).join('\n')
+  async formattedIssueList() {
+    return this.foundKeys
+      .map(
+        (a) =>
+          `*  **[${a.get('key')}](${this.jiraUrl}/browse/${a.get('key')})** [${a.get(
+            'status',
+            'Jira Status Unknown',
+          )}] ${a.get('summary')} (Fix: #${a.get('ghNumber')})`,
+      )
+      .join('\n')
   }
 
-  async outputReleaseNotes () {
+  async outputReleaseNotes() {
     const issues = await this.formattedIssueList()
 
     core.setOutput('notes', `### Release Notes:\n\n${issues}`)
   }
 
-  async execute () {
+  async execute() {
     const issues = await this.getJiraKeysFromGitRange()
 
     if (issues) {
@@ -479,7 +506,7 @@ module.exports = class {
     }
   }
 
-  preprocessString (str) {
+  preprocessString(str) {
     try {
       _.templateSettings.interpolate = /{{([\s\S]+?)}}/g
       const tmpl = _.template(str)
