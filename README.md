@@ -11,6 +11,7 @@ For examples on how to use this, check out the [gajira-demo](https://github.com/
 > ##### Note: this action requires [Jira Login Action](https://github.com/marketplace/actions/jira-login)
 
 To find an issue key inside github event (branch):
+
 ```yaml
 - name: Find in commit messages
   uses: atlassian/gajira-find-issue-key@master
@@ -19,6 +20,7 @@ To find an issue key inside github event (branch):
 ```
 
 Or do the same using shortcut `from`:
+
 ```yaml
 - name: Find in commit messages
   uses: atlassian/gajira-find-issue-key@master
