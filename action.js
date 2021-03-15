@@ -152,28 +152,20 @@ module.exports = class {
     let newTitle = title.trim()
 
     if (this.argv.updatePRTitle) {
-      const match = title.match(issueIdRegEx)
+      core.debug('Updating PR Title')
+      core.debug(`Current PR Title: ${title}`)
 
-      if (match) {
-        const issueKeys = this.foundKeys.map(a => a.get('key'))
-        const issues = []
+      const issueKeys = this.foundKeys.map(a => a.get('key'))
 
-        for (const issueKey of match) {
-          if (issueKey in issueKeys) {
-            issues.push(issueKey)
-          }
-        }
+      if (issueKeys) {
+        try {
+          const re = /(?:(?:\n|\[|\s)+)?(?<issues>(?:(?:[a-zA-Z]{0,8})(?:[ \-_])(?:[0-9]{3,5})(?:(?:,| )+)?)+)?(?:\]|:)?(?:[ \-_|\]]+)?(?<title>.*)?$/gm
+          const { groups } = newTitle.match(re)
 
-        if (issues.length > 0) {
-          try {
-            const re = /(?:(?:\n|\[|\s)+)?(?<issues>(?:(?:[a-zA-Z]{0,8})(?:[ \-_])(?:[0-9]{3,5})(?:, )?)+)?(?:\]|:)?(?:[ \-_|\]]+)?(?<title>.*)?$/gm
-            const { groups } = newTitle.match(re)
-
-            newTitle = `${issues.join(', ')}: ${upperCaseFirst(groups.title.trim())}`.slice(0, 71)
-            core.setOutput('title', `${upperCaseFirst(groups.title.trim())}`)
-          } catch (error) {
-            core.warning(error)
-          }
+          newTitle = `${issueKeys.join(', ')}: ${upperCaseFirst(groups.title.trim())}`.slice(0, 71)
+          core.setOutput('title', `${upperCaseFirst(groups.title.trim())}`)
+        } catch (error) {
+          core.warning(error)
         }
       }
     }
@@ -285,6 +277,16 @@ module.exports = class {
 
     if (!commits || !commits.data) { return }
     const fullArray = []
+
+    const { title } = this.githubEvent.pull_request || context.payload.pull_request
+
+    if (title) {
+      match = title.match(issueIdRegEx)
+
+      if (match) {
+        for (const issueKey of match) { fullArray.push(issueKey) }
+      }
+    }
 
     match = this.headRef.match(issueIdRegEx)
     if (match) {
