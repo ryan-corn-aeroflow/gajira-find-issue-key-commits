@@ -15,7 +15,7 @@ const eventTemplates = {
 const { context } = github
 
 module.exports = class {
-  constructor({ githubEvent, argv, config }) {
+  constructor ({ githubEvent, argv, config }) {
     this.Jira = new Jira({
       baseUrl: config.baseUrl,
       token: config.token,
@@ -45,7 +45,7 @@ module.exports = class {
     this.github = new github.GitHub(argv.githubToken) || null
   }
 
-  async findGithubMilestone(issueMilestone) {
+  async findGithubMilestone (issueMilestone) {
     if (!issueMilestone) { return }
     const milestones = await this.github.issues.listMilestonesForRepo({
       ...context.repo,
@@ -62,7 +62,7 @@ module.exports = class {
     core.debug(`Existing milestone not found.`)
   }
 
-  async createOrUpdateMilestone(issueMilestone, issueMilestoneDueDate, issueMilestoneDescription) {
+  async createOrUpdateMilestone (issueMilestone, issueMilestoneDueDate, issueMilestoneDescription) {
     if (!issueMilestone) { return }
     let milestone = await this.findGithubMilestone(issueMilestone)
 
@@ -211,10 +211,11 @@ module.exports = class {
     for (const issueKey of uniqueKeys) {
       // Version 3 includes Sprint information, but description is in Atlassian Document Format
       // Which is used only by atlassian, and we need a converter to Markdown.
-      // Version 2 uses Atlassian RichText for its Descriptions, and this can be converted to Markdown
+      // Version 2 uses Atlassian RichText for its Descriptions,
+      // and this can be converted to Markdown
       // TODO: Harass Atlassian about conversion between their own products
-      const issue = await this.Jira.getIssue(issueKey, null, '3')
-      const issueV2 = await this.Jira.getIssue(issueKey, null, '2')
+      const issue = await this.Jira.getIssue(issueKey, {}, '3')
+      const issueV2 = await this.Jira.getIssue(issueKey, { fields: ['description'] }, '2')
       const issueObject = new Map()
 
       if (issue) {
@@ -264,7 +265,7 @@ module.exports = class {
     return this.foundKeys
   }
 
-  async execute() {
+  async execute () {
     const issues = await this.getJiraKeysFromGitRange()
 
     if (issues) {
@@ -298,7 +299,7 @@ module.exports = class {
     }
   }
 
-  preprocessString(str) {
+  preprocessString (str) {
     try {
       _.templateSettings.interpolate = /{{([\s\S]+?)}}/g
       const tmpl = _.template(str)
