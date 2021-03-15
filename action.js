@@ -317,7 +317,7 @@ module.exports = class {
       }
     }
     // Make the array Unique
-    const uniqueKeys = [...new Set(fullArray)]
+    const uniqueKeys = [...new Set(fullArray.map(a => a.toUpperCase()))]
 
     core.debug(`Unique Keys: ${uniqueKeys}\n`)
     // Verify that the strings that look like key match real Jira keys
