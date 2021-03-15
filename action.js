@@ -15,7 +15,7 @@ const eventTemplates = {
 const { context } = github
 
 module.exports = class {
-  constructor ({ githubEvent, argv, config }) {
+  constructor({ githubEvent, argv, config }) {
     this.Jira = new Jira({
       baseUrl: config.baseUrl,
       token: config.token,
@@ -45,7 +45,7 @@ module.exports = class {
     this.github = new github.GitHub(argv.githubToken) || null
   }
 
-  async findGithubMilestone (issueMilestone) {
+  async findGithubMilestone(issueMilestone) {
     if (!issueMilestone) { return }
     const milestones = await this.github.issues.listMilestonesForRepo({
       ...context.repo,
@@ -62,7 +62,7 @@ module.exports = class {
     core.debug(`Existing milestone not found.`)
   }
 
-  async createOrUpdateMilestone (issueMilestone, issueMilestoneDueDate, issueMilestoneDescription) {
+  async createOrUpdateMilestone(issueMilestone, issueMilestoneDueDate, issueMilestoneDescription) {
     if (!issueMilestone) { return }
     let milestone = await this.findGithubMilestone(issueMilestone)
 
@@ -90,7 +90,7 @@ module.exports = class {
     return milestone.number
   }
 
-  async createOrUpdateGHIssue (issueKey, issueTitle, issueBody, issueAssignee, milestoneNumber) {
+  async createOrUpdateGHIssue(issueKey, issueTitle, issueBody, issueAssignee, milestoneNumber) {
     core.debug(`Getting list of issues`)
     const issues = await this.github.issues.listForRepo({
       ...context.repo,
@@ -130,7 +130,7 @@ module.exports = class {
     core.debug(`Github Issue: ${YAML.stringify(issue)}`)
   }
 
-  async jiraToGitHub (jiraIssue) {
+  async jiraToGitHub(jiraIssue) {
     // Get or set milestone from issue
     // for (let version of jiraIssue.fixVersions) {
 
@@ -159,7 +159,7 @@ module.exports = class {
     }
   }
 
-  async getJiraKeysFromGitRange () {
+  async getJiraKeysFromGitRange() {
     let match = null
 
     if (!(this.baseRef && this.headRef)) {
@@ -238,8 +238,8 @@ module.exports = class {
           issueObject.set('summary', issue.fields.summary)
           core.debug(`Jira ${issue.key} summary: ${issue.fields.summary}`)
           if (issuev2.fields.description) {
-          issueObject.set('descriptionJira', issuev2.fields.description)
-          issueObject.set('description', this.J2M.toM(issuev2.fields.description))
+            issueObject.set('descriptionJira', issuev2.fields.description)
+            issueObject.set('description', this.J2M.toM(issuev2.fields.description))
           }
           if (issue.fields.sprint) {
             issueObject.set('sprint', issue.fields.sprint.name)
@@ -264,7 +264,7 @@ module.exports = class {
     return this.foundKeys
   }
 
-  async execute () {
+  async execute() {
     const issues = await this.getJiraKeysFromGitRange()
 
     if (issues) {
@@ -298,7 +298,7 @@ module.exports = class {
     }
   }
 
-  preprocessString (str) {
+  preprocessString(str) {
     try {
       _.templateSettings.interpolate = /{{([\s\S]+?)}}/g
       const tmpl = _.template(str)

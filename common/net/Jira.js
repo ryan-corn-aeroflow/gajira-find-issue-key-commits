@@ -73,9 +73,9 @@ class Jira {
       headers['Content-Type'] = 'application/json'
     }
 
-    // if (headers.Accept === undefined) {
-    //   headers.Accept = 'application/json'
-    // }
+    if (headers.Accept === undefined) {
+      headers.Accept = 'application/json'
+    }
 
     if (headers.Authorization === undefined) {
       headers.Authorization = `Basic ${Buffer.from(`${this.email}:${this.token}`).toString('base64')}`
@@ -107,7 +107,7 @@ class Jira {
       delete state.req.headers
 
       throw Object.assign(
-        new Error('Jira API error'),
+        new Error(`Jira API error: ${error}`),
         state,
         fields
       )
