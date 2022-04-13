@@ -1,27 +1,23 @@
-// jest.config.js
-require('nock').disableNetConnect()
-
-module.exports = {
+// Sync object
+const config = {
   clearMocks: true,
+  maxWorkers: 2,
+  rootDir: '.',
   moduleFileExtensions: ['js', 'ts'],
   testEnvironment: 'node',
-  testMatch: ['**/*.test.ts'],
+  testMatch: ['**/__tests__/*.test.ts'],
   testRunner: 'jest-circus/runner',
   transform: {
     '^.+\\.ts$': 'ts-jest',
   },
-
+  setupFiles: ['dotenv/config'],
   reporters: ['default', 'jest-junit'],
 
   verbose: true,
-}
+  testPathIgnorePatterns: ['/helpers/', '/node_modules/'],
+  coveragePathIgnorePatterns: ['/node_modules/'],
+  coverageReporters: ['lcov', 'text', 'clover'],
+  coverageDirectory: './test-results',
+};
 
-const processStdoutWrite = process.stdout.write.bind(process.stdout)
-
-process.stdout.write = (str, encoding, cb) => {
-  // Core library will directly call process.stdout.write for commands
-  // We don't want :: commands to be executed by the runner during tests
-  if (!str.match(/^::/)) {
-    return processStdoutWrite(str, encoding, cb)
-  }
-}
+module.exports = config;

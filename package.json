@@ -1,67 +1,114 @@
 {
-  "name": "find",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "NODE_ENV=testing jest",
-    "build": "ncc build index.js --minify",
-    "watch": "ncc build index.js --watch --minify",
-    "lint": "prettier --write *.{yml,json,md} && eslint --fix ."
+  "root": true,
+  "displayName": "Broadshield/gajira-find-issue-key",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:Broadshield/gajira-find-issue-key.git"
   },
-  "author": "",
+  "bugs": {
+    "url": "https://github.com/Broadshield/gajira-find-issue-key/issues"
+  },
+  "keywords": [
+    "actions",
+    "github",
+    "node16",
+    "jira",
+    "tickets"
+  ],
+  "private": true,
+  "name": "@Broadshield/gajira-find-issue-key",
+  "version": "1.0.0",
+  "description": "This action will find the issue keys in the GitHub event and return them as a comma separated list",
+  "main": "dist/index.js",
+  "scripts": {
+    "eslint": "eslint --color --ext .html,.js,.json,.jsx,.md,.ts,.tsx *.* src",
+    "eslint:fix": "yarn run eslint -- --fix",
+    "test": "NODE_ENV=testing jest",
+    "build": "rimraf dist;esbuild src/index.js --bundle --sourcemap --platform=node --outfile=dist/index.cjs --target=node16 --format=cjs",
+    "clean": "rimraf dist",
+    "format": "prettier --list-different \"./{**/,}*.{ts,js,json,md,yml}\"",
+    "format:fix": "prettier --write \"./{**/,}*.{ts,js,json,md,yml}\"",
+    "lint": "eslint . --ext .js,.ts",
+    "lint:fix": "yarn run format:fix;yarn run eslint:fix",
+    "lint:markdown": "markdownlint \"**/*.md\" --config=.markdownlint.json --ignore-path=.markdownlintignore",
+    "lint:markdown:fix": "yarn lint:markdown --fix",
+    "pre-add": "yarn format:fix",
+    "pre-commit": "yarn run lint:fix && yarn run build && git add dist && yarn run generate-docs",
+    "pre-push": "yarn format",
+    "preversion": "echo 'Running test';yarn test",
+    "version": "echo 'Run versioning commands';yon generate-docs;echo \"::set-output name=tag::v${npm_package_version}\"",
+    "postversion": "echo 'Running post versioning commands';git add . && git commit -m 'update package version' && git push --tags -f && git push && echo \"Successfully released version $npm_package_version!\"",
+    "generate-docs": "github-action-readme-generator && prettier --write .ghadocs.json README.md && git add .ghadocs.json README.md",
+    "prepare": "husky install;git config --global rebase.autosquash true"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "author": "Jamie Nelson <jamie@wearsafe.com>",
   "license": "ISC",
   "dependencies": {
-    "@actions/core": "^1.2.6",
-    "@actions/github": "^4.0.0",
+    "@actions/core": "^1.6.0",
+    "@actions/github": "^5.0.1",
     "adf-builder": "^3.3.0",
     "lodash": "^4.17.21",
-    "node-fetch": "^2.6.1",
-    "yaml": "^1.10.2"
+    "node-fetch": "^3.2.3",
+    "yaml": "^2.0.0"
   },
   "devDependencies": {
-    "@atlassian-partner-engineering/eslint-config": "^3",
-    "@vercel/ncc": "^0.27.0",
-    "eslint": "^7.21.0",
-    "eslint-plugin-github": "^4.1.2",
-    "eslint-plugin-import": "^2.22.1",
-    "eslint-plugin-jest": "^24.1.3",
-    "eslint-plugin-prettier": "^3.3.1",
+    "@Broadshield/prettier-config": "github:Broadshield/prettier-config",
+    "@babel/eslint-parser": "^7.17.0",
+    "@prettier/plugin-ruby": "^2.1.0",
+    "@prettier/plugin-xml": "^2.0.1",
+    "@trunkio/launcher": "^1.0.3-readme",
+    "@tsconfig/node16": "^1.0.2",
+    "@types/node": "^17.0.23",
+    "esbuild": "^0.14.34",
+    "eslint": "^8.13.0",
+    "eslint-config-adjunct": "^4.11.1",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-config-auto": "^0.7.1",
+    "eslint-config-google": "^0.14.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-formatter-codeframe": "^7.32.1",
+    "eslint-plugin-array-func": "^3.1.7",
+    "eslint-plugin-eslint-comments": "^3.2.0",
+    "eslint-plugin-html": "^6.2.0",
+    "eslint-plugin-import": "^2.26.0",
+    "eslint-plugin-jest": "^26.1.4",
+    "eslint-plugin-jest-async": "^1.0.3",
+    "eslint-plugin-json": "^3.1.0",
+    "eslint-plugin-lodash": "^7.4.0",
+    "eslint-plugin-lodash-fp": "^2.2.0-a1",
+    "eslint-plugin-markdown": "^2.2.1",
+    "eslint-plugin-no-constructor-bind": "^2.0.4",
+    "eslint-plugin-no-secrets": "^0.8.9",
+    "eslint-plugin-no-unsanitized": "^4.0.1",
+    "eslint-plugin-no-use-extend-native": "^0.5.0",
+    "eslint-plugin-optimize-regex": "^1.2.1",
+    "eslint-plugin-prettier": "^4.0.0",
+    "eslint-plugin-promise": "^6.0.0",
+    "eslint-plugin-scanjs-rules": "^0.2.1",
+    "eslint-plugin-security": "^1.4.0",
     "eslint-plugin-simple-import-sort": "^7.0.0",
-    "husky": "^4.2.5",
-    "jest": "^26.6.3",
-    "jest-circus": "^26.6.3",
-    "jest-junit": "^12.0.0",
-    "lint-staged": ">=10",
-    "nock": "^13.0.11",
-    "prettier": "^2.2.1",
-    "react": "^17.0.1",
-    "semantic-release": "^17",
-    "typescript": "^4.2.3",
-    "yarn-or-npm": "^3.0.1"
-  },
-  "jest": {
-    "testPathIgnorePatterns": [
-      "/helpers/",
-      "/node_modules/"
-    ],
-    "coveragePathIgnorePatterns": [
-      "/node_modules/"
-    ],
-    "coverageReporters": [
-      "lcov",
-      "text",
-      "clover"
-    ],
-    "coverageDirectory": "../test-results"
+    "eslint-plugin-sonarjs": "^0.13.0",
+    "eslint-plugin-sort-class-members": "^1.14.1",
+    "eslint-plugin-switch-case": "^1.1.2",
+    "eslint-plugin-unicorn": "^42.0.0",
+    "husky": "^7.0.4",
+    "jest": "^27.5.1",
+    "jest-junit": "^13.1.0",
+    "lint-staged": "^12.3.7",
+    "minimal": "^0.2.1",
+    "nock": "^13.2.4",
+    "prettier": "^2.6.2",
+    "prettier-eslint": "^13.0.0",
+    "prettier-plugin-java": "^1.6.1",
+    "prettier-plugin-properties": "^0.1.0",
+    "prettier-plugin-sh": "^0.10.1",
+    "ts-jest": "^27.1.4",
+    "ts-node": "^10.7.0"
   },
   "lint-staged": {
-    "*.{yml,json}": "prettier --write",
-    "*.js": "eslint --cache --fix"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged"
-    }
+    "*.{js,ts}": "eslint --cache --fix"
   }
 }
