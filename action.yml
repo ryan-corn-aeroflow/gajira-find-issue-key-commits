@@ -1,8 +1,8 @@
 name: Jira Find issue key
 description: Find an issue inside event
 branding:
-  icon: 'book-open'
-  color: 'blue'
+  icon: "book-open"
+  color: "blue"
 inputs:
   string:
     description: Provide a string to extract issue key from
@@ -46,7 +46,7 @@ inputs:
       Trims to 70 characters, i.e:
         MYISSUE-123, MYISSUE-124: Resolve callback error, and fix typo
     required: false
-    default: 'true'
+    default: "true"
   include-merge-messages:
     description: >
       When parsing commit messages, include merge and pull messages.
@@ -56,7 +56,7 @@ inputs:
   generate-github-milestones:
     description: >
       Create GitHub Milestones from the Jira Issue' sprints
-    default: 'false'
+    default: "false"
     required: false
   generate-github-issues:
     description: >
@@ -71,7 +71,7 @@ inputs:
       is closed, and merged, the GitHub issues are also closed, by adding 'Resolves #<IssueNumber>'
       syntax on the pull_request body
 
-    default: 'false'
+    default: "false"
     required: false
   jira-transition-chain:
     description: >
@@ -109,7 +109,7 @@ inputs:
       If 'true', then the Jira Fix Versions will be replaced with the 'fix-versions' input.
       Otherwise it will combine the existing Fix Versions with the 'fix-versions' input.
     required: false
-    default: 'true'
+    default: "true"
   github-token:
     description: GitHub Token used for authentication
     required: false
@@ -153,5 +153,5 @@ outputs:
   gist-name:
     description: The name of the Gist created
 runs:
-  using: 'node16'
-  main: 'lib/index.js'
+  using: "node16"
+  main: "lib/index.js"
