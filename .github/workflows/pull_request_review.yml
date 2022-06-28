@@ -1,0 +1,65 @@
+name: Review - Check for code issues
+on:
+  pull_request:
+    types: [labeled, opened, synchronize, reopened, edited]
+    paths: ['src/**/*.ts']
+jobs:
+  eslint:
+    name: runner / eslint
+    strategy:
+      matrix:
+        directory: ['./']
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.head_ref }}
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'npm'
+
+      - name: get email
+        id: user
+        uses: evvanErb/get-github-email-by-username-action@v2.0
+        with:
+          github-username: ${{ github.actor }}
+          token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN || secrets.token }}
+
+      - name: Git Account Setup
+        run: |
+          git config --global user.email ${{ steps.user.outputs.email || 'wearsafe.jenkins@gmail.com' }}
+          git config --global user.name ${{ github.actor }}
+
+      - name: Install Packages
+        continue-on-error: true
+        run: |
+          npm install
+
+      - name: eslint fix
+        working-directory: ${{ matrix.directory }}
+        if: contains(github.event.pull_request.labels.*.name, 'autolint')
+        id: fix
+        continue-on-error: true
+        run: |
+          npm run lint
+
+      - name: Commit Fixes
+        working-directory: ${{ matrix.directory }}
+        if: contains(github.event.pull_request.labels.*.name, 'autolint')
+        continue-on-error: true
+        run: |
+          if [[ -n $(git status -s) ]]; then
+            git add .
+            git commit -m "Auto-fixed linting errors - remember to run 'npm run lint:ts' before committing"
+            git push
+          fi
+
+      - name: Lint Base
+        working-directory: ${{ matrix.directory }}
+        uses: reviewdog/action-eslint@v1
+        with:
+          filter_mode: diff_context
+          reporter: github-pr-review
+          eslint_flags: '--ext .js,.ts .'
