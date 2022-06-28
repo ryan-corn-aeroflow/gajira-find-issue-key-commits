@@ -9,13 +9,7 @@
     "url": "git+https://github.com/Broadshield/gajira-find-issue-key.git",
     "directory": "."
   },
-  "keywords": [
-    "actions",
-    "github",
-    "jira",
-    "node16",
-    "tickets"
-  ],
+  "keywords": ["actions", "github", "jira", "node16", "tickets"],
   "engines": {
     "node": ">=16.0.0"
   },
@@ -27,9 +21,9 @@
   "scripts": {
     "test": "NODE_ENV=testing yarn exec jest",
     "prepare": "yarn exec husky install",
-    "build": "yarn exec ncc build src/index.js -o dist --source-map --license licenses.txt --target node16.10",
     "build:esbuild": "node .github/scripts/esbuild.cjs",
-    "build:esbuild2": "yarn exec esbuild src/index.js --bundle --outdir=lib/ --platform=node --target=node16.10 --analyze=verbose --sourcemap --format=cjs",
+    "build": "yarn exec esbuild src/index.js --bundle --outdir=lib/ --platform=node --target=node16.10 --sourcemap --format=cjs",
+    "test:act": "act -v",
     "lint": "yarn exec pretty-quick && yarn exec eslint --fix src/ __tests__/",
     "typecheck": "tsc --noEmit --project tsconfig.json"
   },

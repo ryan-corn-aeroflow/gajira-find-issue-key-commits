@@ -130,10 +130,10 @@ export function assignRefs(_githubEvent, _context, _argv) {
     baseRef = null;
   }
   if (_context.eventName === 'pull_request') {
-    headRef = headRef || _context.payload.pull_request.head.ref || null;
-    baseRef = baseRef || _context.payload.pull_request.base.ref || null;
+    headRef = headRef || _context.payload?.pull_request?.head?.ref || null;
+    baseRef = baseRef || _context.payload?.pull_request?.base?.ref || null;
   } else if (_context.eventName === 'push') {
-    if (_context.payload.ref.startsWith('refs/tags')) {
+    if (_context.payload?.ref && _context.payload.ref.startsWith('refs/tags')) {
       baseRef = baseRef || getPreviousReleaseRef(github);
     }
     headRef = headRef || _context.payload.ref || null;

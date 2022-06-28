@@ -43,6 +43,10 @@ export default class Action {
     this.J2M = new J2M();
     core.debug(`Config found: \n${highlight(YAML.stringify(config), { language: 'yml', ignoreIllegals: true })}`);
     core.debug(`Args found: \n${highlight(YAML.stringify(argv), { language: 'yml', ignoreIllegals: true })}`);
+    core.debug(`Getting issues from: ${argv.from}`);
+    if (argv.from === 'string') {
+      core.debug(`Getting issues from string: ${argv.string}`);
+    }
     this.config = config;
     this.argv = argv;
     this.rawString = this.argv.string ?? config.string;
@@ -376,14 +380,18 @@ export default class Action {
           if (node) {
             const { message } = node.commit;
             let skipCommit = false;
-            if (message.startsWith('Merge branch') || message.startsWith('Merge pull')) {
-              core.debug('Commit message indicates that it is a merge');
-              if (!this.includeMergeMessages) {
-                skipCommit = true;
+            if (typeof message === 'string') {
+              if (message.startsWith('Merge branch') || message.startsWith('Merge pull')) {
+                core.debug('Commit message indicates that it is a merge');
+                if (!this.includeMergeMessages) {
+                  skipCommit = true;
+                }
               }
-            }
-            if (skipCommit === false) {
-              this.getIssueSetFromString(message, commitSet);
+              if (skipCommit === false) {
+                this.getIssueSetFromString(message, commitSet);
+              }
+            } else {
+              core.debug(`Commit message is not a string: ${YAML.stringify(message)}`);
             }
           }
         });
@@ -684,7 +692,7 @@ export default class Action {
   }
 
   async execute() {
-    if (this.argv.string) {
+    if (this.argv.from === 'string') {
       return this.findIssueKeyIn(this.argv.string);
     }
 
@@ -704,7 +712,7 @@ export default class Action {
   }
 
   async findIssueKeyIn(searchStr) {
-    const result = new Map();
+    const result = [];
     if (typeof searchStr === 'string') {
       if (!searchStr) {
         core.info(`no issues found in ${this.argv.from}`);
@@ -717,23 +725,20 @@ export default class Action {
       } else {
         const issuePArray = [];
         match.forEach((issueKey) => {
-          const issueP = this.getIssue(issueKey)
-            .then((issue) => {
-              if (issue && result.size === 0) {
-                const issueText = highlight(YAML.stringify(issue), { language: 'yml', ignoreIllegals: true });
-                core.debug(`Jira issue: ${issueText}`);
-                return issue;
-              }
-              return null;
-            })
-            .then((issue) => {
-              if (issue) {
-                return result.set(issue.key, issue);
-              }
-            });
-          issuePArray.push(issueP);
+          core.debug(`Looking up key ${issueKey} in jira`);
+          issuePArray.push(this.getIssue(issueKey));
         });
-        await Promise.allSettled(issuePArray);
+
+        const resultArray = await Promise.allSettled(issuePArray);
+        result.push(...resultArray.filter((i) => i.status === 'fulfilled').map((res) => res.value));
+      }
+
+      if (result.length !== 1) {
+        core.debug(`Found ${result.length} issues`);
+        core.debug(`Jira keys: ${result.map((i) => i.key).join(',')}`);
+      } else {
+        core.debug(`Jira key: ${result.map((i) => i.key).join(',')}`);
+        core.debug(`Found ${result.length} issue`);
       }
       return result;
     }

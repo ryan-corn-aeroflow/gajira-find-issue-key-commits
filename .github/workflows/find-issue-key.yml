@@ -1,18 +1,18 @@
 # @prettier
 on: push
 
-name: "Test Find Issue Key"
+name: 'Test Find Issue Key'
 
 jobs:
   test-find-issue-key:
-    name: "Find Issue Key"
+    name: 'Find Issue Key'
     runs-on: ubuntu-20.04
     permissions: write-all
     steps:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          path: "gajira-find-issue-key"
+          path: 'gajira-find-issue-key'
       - name: Test
         run: |
           ls -lah
@@ -24,19 +24,21 @@ jobs:
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL || secrets.JIRA_EMAIL}}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN || secrets.JIRA_TOKEN}}
 
-      - name: "Find Issue Key"
+      - name: 'Find Issue Key'
         id: find
         uses: ./gajira-find-issue-key
         with:
           jira_base_url: ${{ secrets.JIRA_BASE_URL }}
           github-token: ${{github.token}}
-          string: DVPS-335 | will search in branch name
+          from: string
+          string: DVPS-342 | will search in branch name
 
-      - name: "Find issue info"
+      - name: 'Find issue info'
+        shell: bash
         env:
-          ISSUE_FOUND: ${{ format('{0}', steps.find.outputs.issue) }}
+          ISSUE_FOUND: ${{ steps.find.outputs.issue }}
         run: |
-          if [ "${ISSUE_FOUND}" == "DVPS-335" ];then
+          if [[ "${ISSUE_FOUND}" == "DVPS-342" ]];then
             echo "::info:: Issue ${ISSUE_FOUND} was found"
           else
             echo "::error:: Find issue from string failed"

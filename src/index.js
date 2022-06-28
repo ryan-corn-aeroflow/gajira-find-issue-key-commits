@@ -10,7 +10,7 @@ const cliConfigPath = `${process.env.HOME}/.jira.d/config.yml`;
 const configPath = `${process.env.HOME}/jira/config.yml`;
 
 export async function writeKey(result) {
-  if (!result) {
+  if (!result || !result.get('key')) {
     return;
   }
   core.debug(`Detected issueKey: ${result.get('key')}`);
@@ -25,13 +25,12 @@ export async function writeKey(result) {
 
     fsHelper.writeFileSync(configPath, YAML.stringify(extendedConfig));
 
-    return fsHelper.appendFileSync(cliConfigPath, yamledResult);
+    fsHelper.appendFileSync(cliConfigPath, yamledResult);
   }
 }
 
 export const exec = async () => {
   try {
-    const argv = parseArgs();
     const { context } = github;
     let configFromFile = {};
     try {
@@ -41,12 +40,13 @@ export const exec = async () => {
     } catch (error) {
       core.debug(`Error finding/parsing config file: ${error}, moving on`);
     }
+
+    const argv = parseArgs(configFromFile);
     const config = {
-      ...configFromFile,
-      baseUrl: argv?.jiraConfig?.baseUrl ?? configFromFile?.baseUrl,
-      token: argv?.jiraConfig?.token ?? configFromFile?.token,
-      email: argv?.jiraConfig?.email ?? configFromFile?.email,
-      string: argv?.string ?? configFromFile?.string,
+      baseUrl: argv?.jiraConfig?.baseUrl,
+      token: argv?.jiraConfig?.token,
+      email: argv?.jiraConfig?.email,
+      string: argv?.string,
     };
     const result = await new Action({
       context,
@@ -62,7 +62,7 @@ export const exec = async () => {
         const results = [];
         result.forEach((item) => {
           results.push(item);
-          outputIssues.push(item.get('key'));
+          outputIssues.push(item.key);
         });
         await Promise.all(results);
         const issueListString = outputIssues.join(',');
@@ -70,7 +70,7 @@ export const exec = async () => {
 
         return;
       }
-      const issueKey = result.get('key');
+      const issueKey = result.key;
       core.setOutput('issue', issueKey);
       core.setOutput('issues', [issueKey]);
 
@@ -83,23 +83,23 @@ export const exec = async () => {
   }
 };
 
-export function parseArgs() {
+export function parseArgs(providedJiraConfig) {
   const fromList = ['string', 'commits', 'pull_request', 'branch'];
   const jiraConfig = {
     baseUrl: '',
     token: '',
     email: '',
   };
-  jiraConfig.baseUrl = process.env.JIRA_BASE_URL || core.getInput('jira_base_url');
-  if (!jiraConfig.baseUrl || jiraConfig.baseUrl === '') {
+  jiraConfig.baseUrl = process.env.JIRA_BASE_URL ?? providedJiraConfig?.baseUrl ?? core.getInput('jira_base_url');
+  if (!undefinedOnEmpty(jiraConfig.baseUrl)) {
     throw new Error('JIRA_BASE_URL env not defined, or supplied as action input jira_base_url');
   }
-  jiraConfig.token = process.env.JIRA_API_TOKEN || core.getInput('jira_api_token');
-  if (!jiraConfig.token || jiraConfig.token === '') {
+  jiraConfig.token = process.env.JIRA_API_TOKEN ?? providedJiraConfig?.token ?? core.getInput('jira_api_token');
+  if (!undefinedOnEmpty(jiraConfig.token)) {
     throw new Error('JIRA_API_TOKEN env not defined, or supplied as action input jira_api_token');
   }
-  jiraConfig.email = process.env.JIRA_USER_EMAIL || core.getInput('jira_user_email');
-  if (!jiraConfig.email || jiraConfig.email === '') {
+  jiraConfig.email = process.env.JIRA_USER_EMAIL ?? providedJiraConfig?.email ?? core.getInput('jira_user_email');
+  if (!undefinedOnEmpty(jiraConfig.email)) {
     throw new Error('JIRA_USER_EMAIL env not defined, or supplied as action input jira_user_email');
   }
 

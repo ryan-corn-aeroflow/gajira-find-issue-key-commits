@@ -98,14 +98,12 @@ export function writeFileSync(filepath, content) {
   if (!filepath) {
     throw new Error(emptyArgPath);
   }
-  mkdir(filepath);
+  mkdir(path.dirname(filepath));
 
-      return fs.writeFileSync(filepath, content, {
-        encoding: 'utf8',
-        flag: 'w'
-      });
-
-
+  return fs.writeFileSync(filepath, content, {
+    encoding: 'utf8',
+    flag: 'w'
+  });
 }
 
 export function appendFileSync(filepath, content) {
