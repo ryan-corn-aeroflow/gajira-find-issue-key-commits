@@ -1,43 +1,44 @@
-const { get } = require('lodash')
 
-const serviceName = 'jira'
-const { format } = require('url')
-const client = require('./client')(serviceName)
+const { get } = require('lodash');
 
+const serviceName = 'jira';
+const { format } = require('url');
+const client = require('./client')(serviceName);
+
+const APPLICATION_JSON = 'application/json'
+const CONTENT_TYPE = 'Content-Type'
 class Jira {
   constructor({ baseUrl, token, email }) {
-    this.baseUrl = baseUrl
-    this.token = token
-    this.email = email
+    this.baseUrl = baseUrl;
+    this.token = token;
+    this.email = email;
   }
 
   async createIssue(body, version = '2') {
     return this.fetch(
       'createIssue',
       { pathname: `/rest/api/${version}/issue` },
-      { method: 'POST', body },
-    )
+      { method: 'POST', body }
+    );
   }
 
   async getIssue(issueId, query = {}, version = '2') {
-    const { fields = [], expand = [] } = query
+    const { fields = [], expand = [] } = query;
 
     try {
-      const res = await this.fetch('getIssue', {
+      return this.fetch('getIssue', {
         pathname: `/rest/api/${version}/issue/${issueId}`,
         query: {
           fields: fields.join(','),
           expand: expand.join(','),
         },
-      })
-
-      return res
+      });
     } catch (error) {
       if (get(error, 'res.status') === 404) {
-        return
+        return {};
       }
 
-      throw error
+      throw error;
     }
   }
 
@@ -49,8 +50,8 @@ class Jira {
       },
       {
         method: 'GET',
-      },
-    )
+      }
+    );
   }
 
   async transitionIssue(issueId, data, version = '3') {
@@ -62,39 +63,43 @@ class Jira {
       {
         method: 'POST',
         body: data,
-      },
-    )
+      }
+    );
   }
 
-  async fetch(apiMethodName, { host, pathname, query }, { method, body, headers = {} } = {}) {
+  /* eslint-disable no-param-reassign */
+  async fetch(
+    apiMethodName,
+    { host, pathname, query },
+    { method, body, headers = {} } = {}
+  ) {
     const url = format({
       host: host || this.baseUrl,
       pathname,
       query,
-    })
+    });
 
     if (!method) {
-      method = 'GET'
+      method = 'GET';
     }
 
-    if (headers['Content-Type'] === undefined) {
-      headers['Content-Type'] = 'application/json'
+    if (headers[CONTENT_TYPE] === undefined) {
+      headers[CONTENT_TYPE] = APPLICATION_JSON;
     }
 
     if (headers.Accept === undefined) {
-      headers.Accept = 'application/json'
+      headers.Accept = APPLICATION_JSON;
     }
 
     if (headers.Authorization === undefined) {
-      headers.Authorization = `Basic ${Buffer.from(`${this.email}:${this.token}`).toString(
-        'base64',
-      )}`
+      const authStr = Buffer.from(`${this.email}:${this.token}`).toString('base64');
+      headers.Authorization = `Basic ${authStr}`;
     }
 
     // strong check for undefined
     // cause body variable can be 'false' boolean value
-    if (body && headers['Content-Type'] === 'application/json') {
-      body = JSON.stringify(body)
+    if (body && headers[CONTENT_TYPE] === APPLICATION_JSON) {
+      body = JSON.stringify(body);
     }
 
     const state = {
@@ -104,23 +109,24 @@ class Jira {
         body,
         url,
       },
-    }
+    };
 
     try {
-      await client(state, `${serviceName}:${apiMethodName}`)
+      await client(state, `${serviceName}:${apiMethodName}`);
     } catch (error) {
       const fields = {
         originError: error,
         source: 'jira',
-      }
+      };
 
-      delete state.req.headers
+      delete state.req.headers;
 
-      throw Object.assign(new Error(`Jira API error: ${error}`), state, fields)
+      throw Object.assign(new Error(`Jira API error: ${error}`), state, fields);
     }
 
-    return state.res.body
+    return state.res.body;
   }
 }
+/* eslint-enable no-param-reassign */
 
-module.exports = Jira
+module.exports = Jira;

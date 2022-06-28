@@ -1,3 +1,17 @@
 dist/
 lib/
 node_modules/
+dist*/
+.*rc
+.*rc.yaml
+.*rc.yml
+.*rc.json
+.*rc.js
+package-lock.json
+**/*inline-template-*.component.html
+.husky/
+.trunk/
+.vscode/
+elements/
+e2e/reports
+*.min.*

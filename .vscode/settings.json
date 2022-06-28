@@ -1,16 +1,24 @@
 {
-  // eslint extension
-  // "editor.defaultFormatter": "dbaeumer.vscode-eslint",
-  // prettier extension
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "[json]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "editor.formatOnSave": true,
-  "eslint.enable": false,
-  "eslint.alwaysShowStatus": true,
-  "eslint.autoFixOnSave": false,
-  "eslint.validate": ["javascript", "typescript"],
-  "prettier.disableLanguages": ["vue"],
-  "json.format.enable": false
+    "cSpell.ignoreWords": [
+        "j",
+        "mblockplaceholder",
+        "synt"
+    ],
+    "eslint.validate": [
+        "javascript",
+        "typescript",
+        "javascriptreact",
+        "typescriptreact",
+        "html"
+    ],
+    "eslint.options": {
+        "extensions": [
+            ".js",
+            ".ts",
+            "html"
+        ]
+    },
+    "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": true,
+    },
 }
