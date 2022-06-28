@@ -34,15 +34,19 @@ export const exec = async () => {
     const argv = parseArgs();
     const { context } = github;
     let configFromFile = {};
-    if (fsHelper.existsSync(configPath)) {
-      configFromFile = YAML.parse(fsHelper.loadFileSync(configPath));
+    try {
+      if (fsHelper.existsSync(configPath)) {
+        configFromFile = YAML.parse(fsHelper.loadFileSync(configPath));
+      }
+    } catch (error) {
+      core.debug(`Error finding/parsing config file: ${error}, moving on`);
     }
     const config = {
       ...configFromFile,
       baseUrl: argv?.jiraConfig?.baseUrl ?? configFromFile?.baseUrl,
       token: argv?.jiraConfig?.token ?? configFromFile?.token,
       email: argv?.jiraConfig?.email ?? configFromFile?.email,
-      string: argv?.string || configFromFile?.string,
+      string: argv?.string ?? configFromFile?.string,
     };
     const result = await new Action({
       context,

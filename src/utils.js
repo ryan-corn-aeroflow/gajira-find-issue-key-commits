@@ -76,7 +76,7 @@ export const octokit = github.getOctokit(githubToken);
 
 export const { context } = github;
 export async function getPreviousReleaseRef(octo) {
-  if (!context.repository || !octo) {
+  if (!context.repo || !octo) {
     return;
   }
   const releases = await octo.rest.repos.getLatestRelease({

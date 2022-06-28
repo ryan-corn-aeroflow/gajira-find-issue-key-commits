@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout
-        uses: actions/checkout@master
+        uses: actions/checkout@v3
         with:
           path: "gajira-find-issue-key"
 
@@ -29,7 +29,7 @@ jobs:
 
       - name: 'Find issue info'
         env:
-          ISSUE_FOUND: ${{ steps.find.outputs.issue }}
+          ISSUE_FOUND: ${{ format('{0}', steps.find.outputs.issue) }}
         run: |
           if [ "${ISSUE_FOUND}" == "DVPS-335" ];then
             echo "::info:: Issue ${ISSUE_FOUND} was found"
