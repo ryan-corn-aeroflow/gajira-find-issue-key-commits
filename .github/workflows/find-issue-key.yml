@@ -7,6 +7,7 @@ jobs:
   test-find-issue-key:
     name: "Find Issue Key"
     runs-on: ubuntu-20.04
+    permissions: read-all|write-all
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -27,6 +28,7 @@ jobs:
         id: find
         uses: ./gajira-find-issue-key
         with:
+          jira_base_url: ${{ secrets.JIRA_BASE_URL }}
           github-token: ${{github.token}}
           string: DVPS-335 | will search in branch name
 
