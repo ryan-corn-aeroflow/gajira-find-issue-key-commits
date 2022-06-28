@@ -7,7 +7,7 @@ jobs:
   test-find-issue-key:
     name: "Find Issue Key"
     runs-on: ubuntu-20.04
-    permissions: read-all|write-all
+    permissions: write-all
     steps:
       - name: Checkout
         uses: actions/checkout@v3
