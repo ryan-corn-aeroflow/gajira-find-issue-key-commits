@@ -20,7 +20,7 @@ jobs:
 
       - name: 'Find Issue Key'
         id: find
-        uses: Broadshield/gajira-find-issue-key@master
+        uses: ./
         with:
           github-token: ${{github.token}}
           string: DVPS-335 | will search in branch name
