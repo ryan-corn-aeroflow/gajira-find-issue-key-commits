@@ -6,10 +6,12 @@ name: 'Test Find Issue Key'
 jobs:
   test-find-issue-key:
     name: 'Find Issue Key'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout
         uses: actions/checkout@master
+        with:
+          path: "gajira-find-issue-key"
 
       - name: Login
         uses: atlassian/gajira-login@master
