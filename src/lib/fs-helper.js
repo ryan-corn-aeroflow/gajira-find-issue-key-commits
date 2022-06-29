@@ -85,7 +85,7 @@ export function loadFileSync(filepath) {
   throw new Error(`Encountered an error when reading file '${filepath}': file not there`);
 }
 export function mkdir(filepath) {
-  if (!directoryExistsSync(filepath, true)) {
+  if (!directoryExistsSync(path.dirname(filepath), true)) {
     fs.mkdir(path.dirname(filepath), { recursive: true }, (error) => {
       if (error) {
         core.error(error);
