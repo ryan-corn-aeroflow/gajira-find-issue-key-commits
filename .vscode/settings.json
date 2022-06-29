@@ -4,13 +4,6 @@
         "mblockplaceholder",
         "synt"
     ],
-    "eslint.validate": [
-        "javascript",
-        "typescript",
-        "javascriptreact",
-        "typescriptreact",
-        "html"
-    ],
     "eslint.options": {
         "extensions": [
             ".js",
@@ -21,4 +14,13 @@
     "editor.codeActionsOnSave": {
         "source.fixAll.eslint": true,
     },
+  "eslint.alwaysShowStatus": true,
+  "eslint.validate": ["javascript", "typescript"],
+  "json.format.enable": false,
+  "typescript.suggest.autoImports": false,
+  "javascript.suggest.autoImports": true,
+  "eslint.workingDirectories": [{ "mode": "auto" }],
+  "eslint.format.enable": false,
+  "jest.autoRun": "off",
+  "jest.jestCommandLine": "yarn exec jest"
 }

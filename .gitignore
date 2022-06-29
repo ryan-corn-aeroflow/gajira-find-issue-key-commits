@@ -12,6 +12,15 @@ node_modules
 # IDE
 !.vscode
 
+junit.xml
+setup.js
+/.env.*
+/.env
+# IDE
+!.vscode
+/.yarn/cache
+/.yarn/install-state.gz
+/.trunk/out
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
@@ -92,3 +101,5 @@ typings/
 
 # DynamoDB Local files
 .dynamodb/
+
+.secrets

@@ -189,3 +189,5 @@ Procfile text
 ## EXECUTABLES
 *.exe binary
 *.pyc binary
+
+dist/** -diff linguist-generated=true

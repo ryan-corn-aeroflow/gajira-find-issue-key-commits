@@ -1,0 +1,4 @@
+.yarn
+.trunk
+/node_modules/**
+.git/objects/**

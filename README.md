@@ -4,11 +4,11 @@ Extract issue key from string
 
 For examples on how to use this, check out the [gajira-demo](https://github.com/atlassian/gajira-demo) repository
 
-> ##### Only supports Jira Cloud. Does not support Jira Server (hosted)
+> **Only supports Jira Cloud. Does not support Jira Server (hosted)**
 
 ## Usage
 
-> ##### Note: this action requires [Jira Login Action](https://github.com/marketplace/actions/jira-login)
+> **Note: this action requires [Jira Login Action](https://github.com/marketplace/actions/jira-login)**
 
 To find an issue key inside github event (branch):
 
@@ -34,12 +34,30 @@ To find an issue key inside commit messages:
 - name: Find in commit messages
   uses: atlassian/gajira-find-issue-key@master
   with:
+    string: ${{ github.event.ref }}
+```
+
+To find an issue key inside github event (branch):
+
+```yaml
+- name: Find in commit messages
+  uses: atlassian/gajira-find-issue-key@master
+  with:
+    from: branch
+```
+
+To find an issue key inside commit messages:
+
+```yaml
+- name: Find in commit messages
+  uses: atlassian/gajira-find-issue-key@master
+  with:
     from: commits
 ```
 
 ---
 
-## Action Spec:
+## Action Spec
 
 ### Environment variables
 

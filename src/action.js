@@ -1,157 +1,128 @@
-const { find, get, template, templateSettings } = require('lodash');
-const core = require('@actions/core');
-const github = require('@actions/github');
-const YAML = require('yaml');
-const Jira = require('./common/net/Jira');
-const J2M = require('./lib/J2M');
+import * as core from '@actions/core';
+import ansiColors from 'ansi-colors';
+import { highlight } from 'cli-highlight';
+import { Version2Client } from 'jira.js';
+import get from 'lodash/get';
+import template from 'lodash/template';
+import templateSettings from 'lodash/templateSettings';
+import * as YAML from 'yaml';
 
-const issueIdRegEx = /([\dA-Za-z]+-\d+)/g;
+import J2M from './lib/J2M';
+import {
+  assignJiraTransition,
+  assignRefs,
+  endJiraToken,
+  eventTemplates,
+  GetStartAndEndPoints,
+  graphqlWithAuth,
+  issueIdRegEx,
+  listCommitMessagesInPullRequest,
+  octokit,
+  startJiraToken,
+  upperCaseFirst,
+} from './utils';
 
-const startJiraToken = 'JIRA-ISSUE-TEXT-START';
-const endJiraToken = 'JIRA-ISSUE-TEXT-END';
-
-const eventTemplates = {
-  branch: '{{event.ref}}',
-  commits: "{{event.commits.map(c=>c.message).join(' ')}}",
-};
-
-const { context } = github;
-
-async function getPreviousReleaseRef(octo, _context) {
-  if (octo) {
-    const releases = await octo.rest.repos.getLatestRelease({
-      ..._context.repo,
+export default class Action {
+  constructor({ context, argv, config }) {
+    this.style = ansiColors.create();
+    this.baseUrl = config.baseUrl;
+    this.token = config.token;
+    this.email = config.email;
+    this.client = new Version2Client({
+      host: this.baseUrl,
+      telemetry: false,
+      newErrorHandling: true,
+      authentication: {
+        basic: {
+          email: this.email,
+          apiToken: this.token,
+        },
+      },
     });
 
-    // eslint-disable-next-line camelcase
-    const { tag_name } = releases.payload;
-
-    // eslint-disable-next-line camelcase
-    return tag_name;
-  }
-}
-
-function upperCaseFirst(str) {
-  return str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.slice(1));
-}
-
-module.exports = class {
-  constructor({ githubEvent, argv, config }) {
-    this.Jira = new Jira({
-      baseUrl: config.baseUrl,
-      token: config.token,
-      email: config.email,
-    });
-    this.jiraUrl = config.baseUrl;
     this.J2M = new J2M();
-    core.debug(`Config found: ${JSON.stringify(config)}`);
-    core.debug(`Args found: ${JSON.stringify(argv)}`);
+    core.debug(`Config found: \n${highlight(YAML.stringify(config), { language: 'yml', ignoreIllegals: true })}`);
+    core.debug(`Args found: \n${highlight(YAML.stringify(argv), { language: 'yml', ignoreIllegals: true })}`);
+    core.debug(`Getting issues from: ${argv.from}`);
+    if (argv.from === 'string') {
+      core.debug(`Getting issues from string: ${argv.string}`);
+    }
     this.config = config;
     this.argv = argv;
-    this.githubEvent = githubEvent || context.payload;
-    this.github = null;
+    this.rawString = this.argv.string ?? config.string;
+    this.context = context || context.payload;
+    this.github = octokit;
     this.createIssue = argv.createIssue;
     this.updatePRTitle = argv.updatePRTitle;
+    this.includeMergeMessages = argv.includeMergeMessages;
     this.commitMessageList = null;
-    this.foundKeys = null;
+    this.foundKeys = [];
     this.githubIssues = [];
     this.jiraTransition = null;
-    this.transitionChain = [];
-    if (argv.transitionChain) {
-      this.transitionChain = argv.transitionChain.split(',');
-    }
+    this.createGist = false;
+    this.gist_private = config.gist_private;
+    this.fixVersions = argv.fixVersions;
+    this.transitionChain = argv.transitionChain?.split(',') || [];
+    this.jiraTransition = assignJiraTransition(context, argv);
+    const refs = assignRefs(context, context, argv);
+    this.headRef = refs.headRef;
+    this.baseRef = refs.baseRef;
 
-    if (context.eventName === 'pull_request') {
-      if (context.payload.action in ['closed'] && context.payload.pull_request.merged === 'true') {
-        this.jiraTransition = argv.transitionOnPrMerge;
-      } else if (context.payload.action in ['opened']) {
-        this.jiraTransition = argv.transitionOnPrOpen;
-      }
-    } else if (context.eventName === 'pull_request_review') {
-      if (context.payload.state === 'APPROVED') {
-        this.jiraTransition = argv.transitionOnPrApproval;
-      }
-    } else if (context.eventName in ['create']) {
-      this.jiraTransition = argv.transitionOnNewBranch;
-    }
-
-    this.github = new github.GitHub(argv.githubToken) || null;
-
-    if (Object.prototype.hasOwnProperty.call(githubEvent, 'pull_request')) {
-      this.headRef = githubEvent.pull_request.head.ref || null;
-      this.baseRef = githubEvent.pull_request.base.ref || null;
-    } else if (Object.prototype.hasOwnProperty.call(githubEvent, 'ref')) {
-      this.headRef = githubEvent.ref || null;
-      this.baseRef = null;
-    }
-    if (context.eventName === 'pull_request') {
-      this.headRef = this.headRef || context.payload.pull_request.head.ref || null;
-      this.baseRef = this.baseRef || context.payload.pull_request.base.ref || null;
-    } else if (context.eventName === 'push') {
-      if (context.payload.ref.startsWith('refs/tags')) {
-        this.baseRef = this.baseRef || getPreviousReleaseRef(this.github);
-      }
-      this.headRef = this.headRef || context.payload.ref || null;
-    }
-    this.headRef = argv.headRef || this.headRef || null;
-    this.baseRef = argv.baseRef || this.baseRef || null;
+    if (config.gist_name) this.createGist = true;
   }
 
   // if (context.payload.action in ['closed'] && context.payload.pull_request.merged === 'true')
 
   async findGithubMilestone(issueMilestone) {
-    if (!issueMilestone) {
-      return;
-    }
-    const milestones = await this.github.issues.listMilestonesForRepo({
-      ...context.repo,
+    core.info(this.style.bold.yellow(`Milestone: finding a milestone with title matching ${issueMilestone}`));
+    const milestones = await this.github.rest.issues.listMilestones({
+      ...this.context.repo,
       state: 'all',
     });
-
-    (milestones.data ?? []).forEach((element) => {
-      if (element.title === issueMilestone.toString()) {
-        core.debug(`Existing milestone found: ${element.title}`);
-
-        return element;
+    if (milestones.data) {
+      const milestone = milestones.data.filter((element) => element.title === issueMilestone.toString());
+      if (milestone.length === 1) {
+        return milestone[0];
       }
-    });
-    core.debug(`Existing milestone not found.`);
+    }
+    core.debug(this.style.bold.yellow(`Milestone: Existing milestone not found.`));
   }
 
   async createOrUpdateMilestone(issueMilestone, issueMilestoneDueDate, issueMilestoneDescription) {
-    if (!issueMilestone) {
-      return;
-    }
-    let milestone = await this.findGithubMilestone(issueMilestone);
+    core.debug(this.style.bold.yellow.underline(`createOrUpdateMilestone: issueMilestone is ${issueMilestone}`));
 
-    if (milestone) {
-      this.github.issues.updateMilestone({
-        ...context.repo,
-        milestone_number: milestone.number,
+    const foundMilestone = await this.findGithubMilestone(issueMilestone);
+
+    if (foundMilestone) {
+      this.github.rest.issues.updateMilestone({
+        ...this.context.repo,
+        milestone_number: foundMilestone.number,
         description: issueMilestoneDescription,
         state: 'open',
         due_on: issueMilestoneDueDate,
       });
-
-      return milestone.number;
+      core.info(this.style.bold.yellow(`Milestone: ${issueMilestone} with number ${foundMilestone.number} updated`));
+      return foundMilestone.number;
     }
 
-    milestone = await this.github.issues.createMilestone({
-      ...context.repo,
+    const newMilestone = await this.github.rest.issues.createMilestone({
+      ...this.context.repo,
       title: `${issueMilestone}`,
       description: issueMilestoneDescription,
       state: 'open',
-      // YYYY-MM-DDTHH:MM:SSZ
+      // YYYY-MM-DDTHH:MM:SSZ | ISO 8601
       due_on: issueMilestoneDueDate,
     });
 
-    return milestone.number;
+    core.info(this.style.bold.yellow(`Milestone: ${issueMilestone} with number ${newMilestone.data.number} created`));
+
+    return newMilestone.data.number;
   }
 
   async updateStringByToken(startToken, endToken, fullText, insertText) {
     const regex = new RegExp(
       `(?<start>\\[\\/]: \\/ "${startToken}"\\n)(?<text>(?:.|\\s)+)(?<end>\\n\\[\\/]: \\/ "${endToken}"(?:\\s)?)`,
-      'gm'
+      'gm',
     );
 
     if (regex.test(fullText)) {
@@ -162,17 +133,15 @@ module.exports = class {
   }
 
   async updatePullRequestBody(startToken, endToken) {
-    if (!this.githubEvent.pull_request && !context.payload.pull_request) {
-      core.debug(
-        `Skipping pull request update, pull_request not found in current github context, or received event`
-      );
+    if (!this.context.pull_request) {
+      core.info(`Skipping pull request update, pull_request not found in current github context, or received event`);
 
       return;
     }
     const issues = await this.formattedIssueList();
     const text = `### Linked Jira Issues:\n\n${issues}\n`;
 
-    const { number, body, title } = this.githubEvent.pull_request || context.payload.pull_request;
+    const { number, body, title } = this.context.pull_request;
 
     core.debug(`Updating PR number ${number}`);
     core.debug(`With text:\n ${text}`);
@@ -190,7 +159,7 @@ module.exports = class {
 
           const { groups } = newTitle.match(re);
 
-          core.debug(`The title match found: ${YAML.stringify(groups)}`);
+          core.info(`The title match found: ${YAML.stringify(groups)}`);
 
           newTitle = `${issueKeys.join(', ')}: ${upperCaseFirst(groups.title.trim())}`.slice(0, 71);
           core.setOutput('title', `${upperCaseFirst(groups.title.trim())}`);
@@ -202,8 +171,8 @@ module.exports = class {
     if (issues) {
       const bodyUpdate = await this.updateStringByToken(startToken, endToken, body, text);
 
-      await this.github.pulls.update({
-        ...context.repo,
+      await this.github.rest.pulls.update({
+        ...this.context.repo,
         title: newTitle,
         body: bodyUpdate,
         pull_number: number,
@@ -211,49 +180,52 @@ module.exports = class {
     }
   }
 
-  async createOrUpdateGHIssue(issueKey, issueTitle, issueBody, milestoneNumber) {
+  async createOrUpdateGHIssue(issueKey, issueTitle, issueBody, issueAssignee, milestoneNumber) {
     core.debug(`Getting list of issues`);
-    const issues = await this.github.issues.listForRepo({
-      ...context.repo,
+    const issues = await this.github.rest.issues.listForRepo({
+      ...this.context.repo,
       state: 'open',
+      milestone: '*',
+      assignee: '*',
+      sort: 'created',
     });
     let issueNumber = null;
 
     core.debug(`Checking for ${issueKey} in list of issues`);
-    (issues.data ?? [{}]).forEach((i) => {
-      if (!i.pull_request && i.title && i.title.includes(issueKey)) {
-        issueNumber = i.number;
-      }
-    });
+    if (issues?.data) {
+      const isu = issues.data.find((i) => !i.pull_request && i.title && i.title.includes(issueKey));
+      issueNumber = isu?.number ?? null;
+    }
 
     let issue = null;
 
     if (issueNumber) {
       core.debug(`Updating ${issueKey} with issue number ${issueNumber}`);
-      issue = await this.github.issues.update({
-        ...context.repo,
+      issue = await this.github.rest.issues.update({
+        ...this.context.repo,
         issue_number: issueNumber,
         title: `${issueKey}: ${issueTitle}`,
         body: issueBody,
         assignees: [],
         // assignees: issueAssignee ? [issueAssignee] : null,
-        milestone: milestoneNumber,
+        milestone: milestoneNumber === -1 ? undefined : milestoneNumber,
       });
     } else {
       core.debug(`Creating ${issueKey}`);
-      issue = await this.github.issues.create({
-        ...context.repo,
+      issue = await this.github.rest.issues.create({
+        ...this.context.repo,
         title: `${issueKey}: ${issueTitle}`,
         body: issueBody,
         assignees: [],
         // assignees: issueAssignee ? [issueAssignee] : null,
-        milestone: milestoneNumber,
+        milestone: milestoneNumber === -1 ? undefined : milestoneNumber,
       });
     }
 
     this.githubIssues.push(issue.data.number);
-
+    core.startGroup(`GitHub issue ${issue.data.number} data`);
     core.debug(`Github Issue: \n${YAML.stringify(issue.data)}`);
+    core.endGroup();
 
     return issue.data.number;
   }
@@ -261,206 +233,454 @@ module.exports = class {
   async jiraToGitHub(jiraIssue) {
     // Get or set milestone from issue
     // for (let version of jiraIssue.fixVersions) {
-    core.debug(
-      `JiraIssue is in project ${jiraIssue.get('projectKey')} sprint ${jiraIssue.get('sprint')}`
+    core.info(
+      `JiraIssue is in project ${jiraIssue.projectKey} Fix Versions ${this.setToCommaDelimitedString(
+        jiraIssue.fixVersions,
+      )}`,
     );
+    let chainP = Promise.resolve(-1);
 
-    const msNumber = await this.createOrUpdateMilestone(
-      jiraIssue.get('sprint') || null,
-      jiraIssue.get('duedate'),
-      `Jira project ${jiraIssue.get('projectKey')} sprint ${jiraIssue.get('sprint')}`
-    );
+    if (jiraIssue.fixVersions.length === 1) {
+      chainP = chainP.then(() =>
+        this.createOrUpdateMilestone(
+          this.fixVersions[0],
+          jiraIssue.dueDate,
+          `Jira project ${jiraIssue.projectKey} Fix Version ${this.fixVersions[0]}`,
+        ),
+      );
+    }
 
     // set or update github issue
-    return this.createOrUpdateGHIssue(
-      jiraIssue.get('key'),
-      jiraIssue.get('summary'),
-      jiraIssue.get('description'),
-      msNumber
+    return chainP.then((msNumber) =>
+      this.createOrUpdateGHIssue(jiraIssue.key, jiraIssue.summary, jiraIssue.description, msNumber),
+    );
+  }
+
+  async getStartAndEndDates(range) {
+    const { repository } = await graphqlWithAuth(GetStartAndEndPoints, {
+      ...this.context.repo,
+      ...range,
+    });
+    const startDateList = repository?.startPoint?.target?.history?.edges;
+    const startDate = startDateList ? startDateList[0]?.node?.committedDate : '';
+    const endDateList = repository?.endPoint?.target?.history?.edges;
+    const endDate = endDateList ? endDateList[0]?.node?.committedDate : '';
+    return { startDate, endDate };
+  }
+
+  async getIssue(issueId, query) {
+    if (typeof issueId !== 'string') {
+      throw new TypeError(`Issue ID must be a string, was: ${typeof issueId}, ${YAML.stringify(issueId)}`);
+    }
+    const defaultFields = ['description', 'project', 'fixVersions', 'priority', 'status', 'summary', 'duedate'];
+    const params = {
+      issueIdOrKey: issueId,
+      fields: defaultFields,
+    };
+    if (query != null) {
+      params.fields = query.fields || defaultFields;
+      params.expand = query.expand || undefined;
+    }
+
+    return this.client.issues.getIssue(params).catch(() => {
+      throw new Error(`Error getting issue ${issueId}`);
+    });
+  }
+
+  getIssueSetFromString(str1, _set) {
+    const set = _set || new Set();
+    if (typeof str1 === 'string') {
+      const match = str1.match(issueIdRegEx);
+
+      if (match) {
+        match.forEach((issueKey) => {
+          set.add(issueKey);
+        });
+      }
+    }
+    return set;
+  }
+
+  setToCommaDelimitedString(strSet) {
+    if (strSet) {
+      if (strSet.toString() === '[object Set]') {
+        return [...strSet].join(',');
+      }
+      if (Array.isArray(strSet)) {
+        return strSet.join(',');
+      }
+      if (typeof strSet === 'string') {
+        return strSet;
+      }
+    }
+    return '';
+  }
+
+  get issueKeys() {
+    if (Array.isArray(this.foundKeys)) {
+      return this.foundKeys.map((a) => a.get('key'));
+    }
+    return [];
+  }
+
+  async getRepositoriesNodes(after) {
+    return graphqlWithAuth(listCommitMessagesInPullRequest, {
+      owner: this.context.repo.owner,
+      repo: this.context.repo.repo,
+      prNumber: this.context.payload?.pull_request?.number,
+      after,
+    }).then(
+      (result) => {
+        const { repository } = result;
+        if (repository?.pullRequest?.commits?.nodes) {
+          const { totalCount = 0, pageInfo, nodes } = repository.pullRequest.commits;
+          if (totalCount === 0) {
+            return [...nodes];
+          }
+          if (pageInfo && pageInfo.hasNextPage === true) {
+            return [...nodes, ...this.getRepositoriesNodes(pageInfo.endCursor)];
+          }
+        }
+        return [];
+      },
+      (error) => {
+        core.error(error);
+        return null;
+      },
     );
   }
 
   async getJiraKeysFromGitRange() {
-    let match = null;
-
     if (!(this.baseRef && this.headRef)) {
-      core.debug('Base ref and head ref not found');
+      core.info('getJiraKeysFromGitRange: Base ref and head ref not found');
 
-      return;
+      return [];
     }
-    core.debug(`Getting list of github commits between ${this.baseRef} and ${this.headRef}`);
-    // This will work fine up to 250 commit messages
-    const commits = await this.github.repos.compareCommits({
-      ...context.repo,
-      base: this.baseRef,
-      head: this.headRef,
-    });
+    core.info(`getJiraKeysFromGitRange: Getting list of GitHub commits between ${this.baseRef} and ${this.headRef}`);
 
-    if (!commits || !commits.data) {
-      return;
+    const stringSet = this.getIssueSetFromString(this.rawString);
+    if (this.rawString) {
+      core.debug(`Raw string provided is: ${this.rawString}`);
+      core.setOutput('string_issues', this.setToCommaDelimitedString(stringSet));
     }
-    const fullArray = [];
 
-    const { title } = this.githubEvent.pull_request || context.payload.pull_request;
+    const titleSet = this.getIssueSetFromString(this.context?.pull_request?.title);
+    if (this.context.eventName.startsWith('pull_request')) {
+      core.debug(`Pull request title is: ${this.context.payload?.pull_request?.title}`);
+      core.setOutput('title_issues', this.setToCommaDelimitedString(titleSet));
+    }
+    const refSet = this.getIssueSetFromString(this.headRef);
+    core.setOutput('ref_issues', this.setToCommaDelimitedString(refSet));
+    const commitSet = new Set();
 
-    if (title) {
-      match = title.match(issueIdRegEx);
-
-      if (match) {
-        match.forEach((issueKey) => {
-          fullArray.push(issueKey);
+    if (this.context.payload?.pull_request?.number) {
+      const nodes = await this.getRepositoriesNodes(null);
+      if (nodes) {
+        [...nodes].forEach((node) => {
+          if (node) {
+            const { message } = node.commit;
+            let skipCommit = false;
+            if (typeof message === 'string') {
+              if (message.startsWith('Merge branch') || message.startsWith('Merge pull')) {
+                core.debug('Commit message indicates that it is a merge');
+                if (!this.includeMergeMessages) {
+                  skipCommit = true;
+                }
+              }
+              if (skipCommit === false) {
+                this.getIssueSetFromString(message, commitSet);
+              }
+            } else {
+              core.debug(`Commit message is not a string: ${YAML.stringify(message)}`);
+            }
+          }
         });
       }
     }
 
-    match = this.headRef.match(issueIdRegEx);
-    if (match) {
-      match.forEach((issueKey) => {
-        fullArray.push(issueKey);
-      });
-    }
-    (commits.data.commits ?? [{}]).forEach((item) => {
-      if (item.commit && item.commit.message) {
-        match = item.commit.message.match(issueIdRegEx);
-        if (match) {
-          let skipCommit = false;
+    core.setOutput('commit_issues', this.setToCommaDelimitedString(commitSet));
 
-          if (
-            (item.commit.message.startsWith('Merge branch') ||
-              item.commit.message.startsWith('Merge pull')) &&
-            !this.argv.includeMergeMessages
-          ) {
-            skipCommit = true;
-          }
+    const combinedArray = [...new Set([...stringSet, ...titleSet, ...refSet, ...commitSet])];
+    const ghResults = [];
 
-          if (skipCommit === false) {
-            match.forEach((issueKey) => {
-              fullArray.push(issueKey);
-            });
-          }
-        }
-      }
-    });
-    // Make the array Unique
-    const uniqueKeys = [...new Set(fullArray.map((a) => a.toUpperCase()))];
-
-    core.debug(`Unique Keys: ${uniqueKeys}\n`);
-    // Verify that the strings that look like key match real Jira keys
-    this.foundKeys = [];
-    uniqueKeys.forEach(async (issueKey) => {
-      // Version 3 includes Sprint information, but description is in Atlassian Document Format
-      // Which is used only by atlassian, and we need a converter to Markdown.
-      // Version 2 uses Atlassian RichText for its Descriptions,
-      // and this can be converted to Markdown
-      // TODO: Harass Atlassian about conversion between their own products
-      const issue = await this.Jira.getIssue(issueKey, {}, '3');
-      const issueV2 = await this.Jira.getIssue(
-        issueKey,
-        { fields: ['description', 'sprint'] },
-        '2'
-      );
-      const issueObject = new Map();
-
-      if (issue) {
-        core.debug(`Issue ${issue.key}: \n${YAML.stringify(issue)}`);
-        issueObject.set('key', issue.key);
-        try {
-          issueObject.set('projectName', issue.fields.project.name);
-          core.debug(`Jira ${issue.key} project name: ${issue.fields.project.name}`);
-          issueObject.set('projectKey', issue.fields.project.key);
-          core.debug(`Jira ${issue.key} project key: ${issue.fields.project.key}`);
-          issueObject.set('priority', issue.fields.priority.name);
-          core.debug(`Jira ${issue.key} priority: ${issue.fields.priority.name}`);
-          issueObject.set('status', issue.fields.status.name);
-          core.debug(`Jira ${issue.key} status: ${issue.fields.status.name}`);
-          issueObject.set('statusCategory', issue.fields.status.statusCategory.name);
-          core.debug(
-            `Jira ${issue.key} statusCategory: ${issue.fields.status.statusCategory.name}`
-          );
-          if (Array.isArray(issue.fields.customfield_11306)) {
-            // Assigned to
-            core.debug(
-              `Jira ${issue.key} displayName: ${issue.fields.customfield_11306[0].displayName}`
-            );
-          }
-          issueObject.set('summary', issue.fields.summary);
-          core.debug(`Jira ${issue.key} summary: ${issue.fields.summary}`);
-          if (issueV2.fields.description) {
-            issueObject.set('descriptionJira', issueV2.fields.description);
-            issueObject.set('description', this.J2M.toM(issueV2.fields.description));
-          }
-          if (issue.fields.sprint) {
-            issueObject.set('sprint', issue.fields.sprint.name);
-            issueObject.set('duedate', issue.fields.sprint.endDate);
-            core.debug(`Jira ${issue.key} sprint: \n${YAML.stringify(issue.fields.sprint)}`);
-          }
-          if (issueV2.fields.sprint) {
-            issueObject.set('sprint', issueV2.fields.sprint.name);
-            issueObject.set('duedate', issueV2.fields.sprint.endDate);
-            core.debug(`Jira ${issue.key} sprint: \n${YAML.stringify(issueV2.fields.sprint)}`);
+    combinedArray.forEach(async (issueKey) => {
+      try {
+        const issue = await this.getIssue(issueKey, {
+          fields: ['status', 'summary', 'fixVersions', 'priority', 'project', 'description', 'duedate'],
+        });
+        if (issue?.key) {
+          const issueObj = {
+            key: issue.key,
+            description: J2M.toM(issue.fields?.description ?? ''),
+            projectKey: issue?.fields?.project?.key,
+            projectName: issue?.fields?.project?.name,
+            fixVersions: issue?.fields?.fixVersions,
+            priority: issue?.fields.priority?.name,
+            status: issue?.fields.status?.name,
+            summary: issue?.fields?.summary,
+            dueDate: issue?.fields?.duedate,
+            ghNumber: undefined,
+          };
+          if (this.fixVersions) {
+            const fixArr =
+              this.fixVersions.toUpperCase() === 'NONE' ? [] : this.fixVersions.split(',').map((f) => f.trim());
+            if (this.argv.replaceFixVersions) {
+              issueObj.fixVersions = fixArr;
+            } else {
+              const _fixVersions = new Set(issueObj.fixVersions.map((f) => f.name));
+              if (this.fixVersions) {
+                const fixVArr = this.fixVersions.split(',').map((f) => f.trim());
+                if (fixVArr && fixVArr.length > 0) {
+                  fixVArr.forEach((vStr) => {
+                    if (!_fixVersions.has(vStr)) {
+                      _fixVersions.add(vStr);
+                    }
+                  });
+                }
+              }
+              this.fixVersions = [..._fixVersions];
+              issueObj.fixVersions = this.fixVersions;
+              core.setOutput(`${issueObj.key}_fixVersions`, this.setToCommaDelimitedString(issueObj.fixVersions));
+            }
           }
 
-          // issue.fields.comment.comments[]
-          // issue.fields.worklog.worklogs[]
-        } finally {
           try {
-            issueObject.set('ghNumber', await this.jiraToGitHub(issueObject));
+            ghResults.push(this.jiraToGitHub(issueObj));
           } catch (error) {
             core.error(error);
           }
-          this.foundKeys.push(issueObject);
+          this.foundKeys.push(issueObj);
         }
+      } catch (error) {
+        core.error(error);
       }
     });
-    core.debug(`Found Jira Keys  : ${this.foundKeys.map((a) => a.get('key'))}\n`);
-    core.debug(`Found GitHub Keys: ${this.foundKeys.map((a) => a.get('ghNumber'))}\n`);
+    await Promise.all(ghResults);
+    core.setOutput('issues', this.setToCommaDelimitedString(combinedArray));
+    // Below is old code
+    // for (const item of commits.data.commits) {
+    //   if (item.commit && item.commit.message) {
+    //     match = item.commit.message.match(issueIdRegEx);
+    //     if (match) {
+    //       let skipCommit = false;
+
+    //       if (
+    //         item.commit.message.startsWith('Merge branch') ||
+    //         item.commit.message.startsWith('Merge pull')
+    //       ) {
+    //         core.debug('Commit message indicates that it is a merge');
+    //         if (!this.argv.includeMergeMessages) {
+    //           skipCommit = true;
+    //         }
+    //       }
+
+    //       if (skipCommit === false) {
+    //         for (const issueKey of match) {
+    //           fullArray.push(issueKey);
+    //         }
+    //       }
+    //     }
+    //   }
+    // }
+    // // Make the array Unique
+    // const uniqueKeys = [...new Set(fullArray.map((a) => a.toUpperCase()))];
+
+    // core.notice(`Unique Keys: ${uniqueKeys}\n`);
+    // // Verify that the strings that look like key match real Jira keys
+    // this.foundKeys = [];
+    // for (const issueKey of uniqueKeys) {
+    //   // Version 3 includes Sprint information, but description is in Atlassian Document Format
+    //   // Which is used only by atlassian, and we need a converter to Markdown.
+    //   // Version 2 uses Atlassian RichText for its Descriptions,
+    //   // and this can be converted to Markdown
+    //   // TODO: Harass Atlassian about conversion between their own products
+    //   const issue = await this.getIssue(issueKey, {});
+    //   const issueV2 = await this.getIssue(issueKey, { fields: ['description', 'fixVersions'] });
+    //   const issueObject = new Map();
+
+    //   if (issue) {
+    //     core.startGroup(this.style.bold.cyan(`Issue ${issue.key} raw details`));
+    //     core.debug(this.style.cyan(`Issue ${issue.key}: \n${YAML.stringify(issue)}`));
+    //     core.endGroup();
+    //     core.startGroup(this.style.bold.cyanBright(`Issue ${issue.key} collected details`));
+    //     issueObject.set('key', issue.key);
+    //     const _fixVersions = new Set(issue.fields.fixVersions.map((f) => f.name));
+    //     if (this.fixVersions) {
+    //       if (!_fixVersions.has(this.fixVersions)) {
+    //         _fixVersions.add(this.fixVersions);
+    //         // this.Jira.updateIssue()
+    //         // Update the Jira Issue to include the fix version and Project
+    //       }
+    //     }
+    //     const fixVersions = Array.from(_fixVersions);
+
+    //     try {
+    //       issueObject.set('key', issue.key);
+    //       if (Array.isArray(issue.fields.customfield_10500)) {
+    //         // Pull Request
+    //         core.debug(`linked pull request: ${issue.fields.customfield_10500[0]}`);
+    //       }
+    //       issueObject.set('projectName', issue.fields.project.name);
+    //       core.debug(`project name: ${issue.fields.project.name}`);
+    //       issueObject.set('fixVersions', fixVersions);
+    //       core.debug(`fixVersions name: ${issue.fields.project.name}`);
+    //       issueObject.set('projectKey', issue.fields.project.key);
+    //       core.debug(`project key: ${issue.fields.project.key}`);
+    //       issueObject.set('priority', issue.fields.priority.name);
+    //       core.debug(`priority: ${issue.fields.priority.name}`);
+    //       issueObject.set('status', issue.fields.status.name);
+    //       core.debug(`status: ${issue.fields.status.name}`);
+    //       issueObject.set('statusCategory', issue.fields.status.statusCategory.name);
+    //       core.debug(`statusCategory: ${issue.fields.status.statusCategory.name}`);
+    //       if (Array.isArray(issue.fields.customfield_11306)) {
+    //         // Assigned to
+    //         core.debug(`displayName: ${issue.fields.customfield_11306[0].displayName}`);
+    //       }
+    //       issueObject.set('summary', issue.fields.summary);
+    //       core.debug(`summary: ${issue.fields.summary}`);
+    //       if (issueV2.fields.description) {
+    //         issueObject.set('descriptionJira', issueV2.fields.description);
+    //         issueObject.set('description', this.J2M.toM(issueV2.fields.description));
+    //       }
+    //       if (issue.fields.sprint) {
+    //         issueObject.set('sprint', issue.fields.sprint.name);
+    //         issueObject.set('duedate', issue.fields.sprint.endDate);
+    //         core.startGroup(`sprint details`);
+    //         core.debug(`sprint: \n${YAML.stringify(issue.fields.sprint)}`);
+    //         core.endGroup();
+    //       }
+    //       if (issueV2.fields.sprint) {
+    //         issueObject.set('sprint', issueV2.fields.sprint.name);
+    //         issueObject.set('duedate', issueV2.fields.sprint.endDate);
+    //         core.startGroup(`JiraV2 sprint details`);
+    //         core.debug(`JiraV2 sprint: \n${YAML.stringify(issueV2.fields.sprint)}`);
+    //         core.endGroup();
+    //       }
+
+    //       // issue.fields.comment.comments[]
+    //       // issue.fields.worklog.worklogs[]
+    //     } finally {
+    //       try {
+    //         issueObject.set('ghNumber', await this.jiraToGitHub(issueObject));
+    //       } catch (error) {
+    //         core.error(error);
+    //       }
+    //       this.foundKeys.push(issueObject);
+    //     }
+    //   }
+    // }
+    // core.endGroup();
+    // core.info(
+    //   this.style.blueBright(
+    //     `Found Jira Keys  : ${style.bold(this.foundKeys.map((a) => a.get('key')))}\n`
+    //   )
+    // );
+    // core.info(
+    //   this.style.yellowBright(
+    //     `Found GitHub Keys: ${style.bold(this.foundKeys.map((a) => a.get('ghNumber')))}\n`
+    //   )
+    // );
 
     return this.foundKeys;
   }
 
+  async getIssueTransitions(issueId) {
+    const params = {
+      issueIdOrKey: issueId,
+    };
+    return this.client.issues.getTransitions(params);
+  }
+
+  async transitionIssue(issueId, data) {
+    const params = {
+      issueIdOrKey: issueId,
+      transition: data,
+    };
+    return this.client.issues.doTransition(params);
+  }
+
   async transitionIssues() {
-    return (this.foundKeys ?? [{}]).forEach(async (a) => {
+    core.debug(this.style.bold.green(`TransitionIssues: Number of keys ${this.foundKeys.length}`));
+    const transitionOptionsProm = [];
+
+    const issueIds = [];
+
+    this.foundKeys.forEach((a) => {
       const issueId = a.get('key');
-
+      core.debug(this.style.bold.green(`TransitionIssues: Checking transition for ${issueId}`));
       if (this.jiraTransition && this.transitionChain) {
-        const { transitions } = await this.Jira.getIssueTransitions(issueId);
-        const idxJT = this.transitionChain.indexOf(this.jiraTransition);
+        transitionOptionsProm.push(
+          this.getIssueTransitions(issueId)
+            .then((transObj) => {
+              const { transitions } = transObj;
+              core.info(
+                this.style.bold.green(
+                  `TransitionIssues: Transitions available for ${issueId}:\n${this.style.bold.greenBright(
+                    YAML.stringify(transitions),
+                  )}`,
+                ),
+              );
+              if (!transitions) {
+                throw new Error('No transitions available');
+              }
+              return transitions;
+            })
+            .then((transitions) => {
+              const idxJT = this.transitionChain.indexOf(this.jiraTransition);
+              const transitionProm = [];
+              for (let i = 0; i < idxJT; i++) {
+                const link = this.transitionChain[i];
 
-        for (let i = 0; i < idxJT; i += 1) {
-          const link = this.transitionChain[i];
+                const transitionToApply = transitions.find(
+                  (t) => t.id === link || t.name?.toLowerCase() === link.toLowerCase(),
+                );
 
-          const transitionToApply = find(transitions, (t) => {
-            if (t.id === link) return true;
-            if (t.name.toLowerCase() === link.toLowerCase()) return true;
-          });
-
-          if (transitionToApply) {
-            core.debug(`Applying transition:${JSON.stringify(transitionToApply, null, 4)}`);
-            await this.Jira.transitionIssue(issueId, {
-              transition: {
-                id: transitionToApply.id,
-              },
-            });
-          }
-        }
+                issueIds.push(issueId);
+                if (transitionToApply) {
+                  const transitionId = transitionToApply.id;
+                  core.info(
+                    this.style.bold.green(
+                      `Applying transition:\n${this.style.bold.greenBright(YAML.stringify(transitionToApply))}`,
+                    ),
+                  );
+                  const tI = this.transitionIssue(issueId, {
+                    transition: {
+                      id: transitionId,
+                    },
+                  });
+                  transitionProm.push(tI);
+                }
+              }
+              return Promise.allSettled(transitionProm);
+            }),
+        );
       }
-      const transitionedIssue = await this.Jira.getIssue(issueId);
-      const statusName = get(transitionedIssue, 'fields.status.name');
-
-      core.debug(`Jira ${issueId} status is: ${statusName}.`);
-      core.debug(`Link to issue: ${this.config.baseUrl}/browse/${issueId}`);
-      a.set('status', statusName);
     });
+
+    await Promise.all(transitionOptionsProm);
+    const issuesProm = [];
+    issueIds.forEach((issueId) => {
+      const issueObj = this.foundKeys.find((iO) => iO.get('key') === issueId);
+      const w = this.getIssue(issueId).then((transitionedIssue) => {
+        const statusName = get(transitionedIssue, 'fields.status.name');
+
+        core.info(this.style.bold.green(`Jira ${issueId} status is: ${statusName}.`));
+        core.info(this.style.bold.green(`Link to issue: ${this.config.baseUrl}/browse/${issueId}`));
+        issueObj.set('status', statusName);
+      });
+      issuesProm.push(w);
+    });
+    await Promise.all(issuesProm);
   }
 
   async formattedIssueList() {
     return this.foundKeys
       .map(
         (a) =>
-          `*  **[${a.get('key')}](${this.jiraUrl}/browse/${a.get('key')})** [${a.get(
+          `*  **[${a.get('key')}](${this.baseUrl}/browse/${a.get('key')})** [${a.get(
             'status',
-            'Jira Status Unknown'
-          )}] ${a.get('summary')} (Fix: #${a.get('ghNumber')})`
+            'Jira Status Unknown',
+          )}] ${a.get('summary')} (Fix: #${a.get('ghNumber')})`,
       )
       .join('\n');
   }
@@ -472,41 +692,56 @@ module.exports = class {
   }
 
   async execute() {
-    const issues = await this.getJiraKeysFromGitRange();
+    if (this.argv.from === 'string') {
+      return this.findIssueKeyIn(this.argv.string);
+    }
 
-    if (issues) {
+    await this.getJiraKeysFromGitRange();
+
+    if (this.foundKeys.length > 0) {
       await this.transitionIssues();
       await this.updatePullRequestBody(startJiraToken, endJiraToken);
       await this.outputReleaseNotes();
 
-      return issues;
+      return this.foundKeys;
     }
 
     const templateStr = eventTemplates[this.argv.from] || this.argv._.join(' ');
-    const extractString = this.preprocessString(templateStr);
+    const searchStr = this.preprocessString(templateStr);
+    return this.findIssueKeyIn(searchStr);
+  }
 
-    if (!extractString) {
-      core.warning(`This github event is not compatible with this usage.`);
-
-      return;
-    }
-    const match = extractString.match(issueIdRegEx);
-
-    if (!match) {
-      core.warning(`String "${extractString}" does not contain issueKeys`);
-
-      return;
-    }
-
-    return match.forEach(async (issueKey) => {
-      const issue = await this.Jira.getIssue(issueKey);
-
-      if (issue) {
-        core.debug(`Jira issue: ${JSON.stringify(issue)}`);
-
-        return new Map(['key', issue.key]);
+  async findIssueKeyIn(searchStr) {
+    const result = [];
+    if (typeof searchStr === 'string') {
+      if (!searchStr) {
+        core.info(`no issues found in ${this.argv.from}`);
+        return result;
       }
-    });
+      const match = searchStr.match(issueIdRegEx);
+
+      if (!match) {
+        core.info(`String "${searchStr}" does not contain issueKeys`);
+      } else {
+        const issuePArray = [];
+        match.forEach((issueKey) => {
+          core.debug(`Looking up key ${issueKey} in jira`);
+          issuePArray.push(this.getIssue(issueKey));
+        });
+
+        const resultArray = await Promise.allSettled(issuePArray);
+        result.push(...resultArray.filter((i) => i.status === 'fulfilled').map((res) => res.value));
+      }
+
+      if (result.length !== 1) {
+        core.debug(`Found ${result.length} issues`);
+        core.debug(`Jira keys: ${result.map((i) => i.key).join(',')}`);
+      } else {
+        core.debug(`Jira key: ${result.map((i) => i.key).join(',')}`);
+        core.debug(`Found ${result.length} issue`);
+      }
+      return result;
+    }
   }
 
   preprocessString(str) {
@@ -514,9 +749,9 @@ module.exports = class {
       templateSettings.interpolate = /{{([\S\s]+?)}}/g;
       const tmpl = template(str);
 
-      return tmpl({ event: this.githubEvent });
+      return tmpl({ event: this.context });
     } catch (error) {
       core.error(error);
     }
   }
-};
+}
