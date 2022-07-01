@@ -1,4 +1,17 @@
-# Jira Find Issue Key
+# Jira Find Issue Key [2022]
+
+## Changes in the 2022 release
+
+### META CHANGES
+
+- Configured to use [ACT](https://github.com/nektos/act) for testing github actions locally
+- Build system now uses [esbuild](https://esbuild.github.io/) to a Node16 bundle
+  - i.e. `yarn exec esbuild src/index.js --bundle --outdir=lib/ --platform=node --target=node16.10 --sourcemap --format=cjs`
+- Action now uses the new [GitHub Node16 runtime](https://github.blog/changelog/2022-05-20-actions-can-now-run-in-a-node-js-16-runtime/)
+- New Jest tests have been added (still more required)
+- Added prettier, eslint and shellcheck to keep the formatting consistent
+
+## Previous Details Below
 
 Extract issue key from string
 

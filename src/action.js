@@ -351,13 +351,6 @@ export default class Action {
   }
 
   async getJiraKeysFromGitRange() {
-    if (!(this.baseRef && this.headRef)) {
-      core.info('getJiraKeysFromGitRange: Base ref and head ref not found');
-
-      return [];
-    }
-    core.info(`getJiraKeysFromGitRange: Getting list of GitHub commits between ${this.baseRef} and ${this.headRef}`);
-
     const stringSet = this.getIssueSetFromString(this.rawString);
     if (this.rawString) {
       core.debug(`Raw string provided is: ${this.rawString}`);
@@ -369,37 +362,41 @@ export default class Action {
       core.debug(`Pull request title is: ${this.context.payload?.pull_request?.title}`);
       core.setOutput('title_issues', this.setToCommaDelimitedString(titleSet));
     }
-    const refSet = this.getIssueSetFromString(this.headRef);
-    core.setOutput('ref_issues', this.setToCommaDelimitedString(refSet));
     const commitSet = new Set();
+    const refSet = new Set();
+    if (this.baseRef && this.headRef) {
+      core.info(`getJiraKeysFromGitRange: Getting list of GitHub commits between ${this.baseRef} and ${this.headRef}`);
 
-    if (this.context.payload?.pull_request?.number) {
-      const nodes = await this.getRepositoriesNodes(null);
-      if (nodes) {
-        [...nodes].forEach((node) => {
-          if (node) {
-            const { message } = node.commit;
-            let skipCommit = false;
-            if (typeof message === 'string') {
-              if (message.startsWith('Merge branch') || message.startsWith('Merge pull')) {
-                core.debug('Commit message indicates that it is a merge');
-                if (!this.includeMergeMessages) {
-                  skipCommit = true;
+      refSet.add([...this.getIssueSetFromString(this.headRef)]);
+      core.setOutput('ref_issues', this.setToCommaDelimitedString(refSet));
+
+      if (this.context.payload?.pull_request?.number) {
+        const nodes = await this.getRepositoriesNodes(null);
+        if (nodes) {
+          [...nodes].forEach((node) => {
+            if (node) {
+              const { message } = node.commit;
+              let skipCommit = false;
+              if (typeof message === 'string') {
+                if (message.startsWith('Merge branch') || message.startsWith('Merge pull')) {
+                  core.debug('Commit message indicates that it is a merge');
+                  if (!this.includeMergeMessages) {
+                    skipCommit = true;
+                  }
                 }
+                if (skipCommit === false) {
+                  this.getIssueSetFromString(message, commitSet);
+                }
+              } else {
+                core.debug(`Commit message is not a string: ${YAML.stringify(message)}`);
               }
-              if (skipCommit === false) {
-                this.getIssueSetFromString(message, commitSet);
-              }
-            } else {
-              core.debug(`Commit message is not a string: ${YAML.stringify(message)}`);
             }
-          }
-        });
+          });
+        }
       }
+
+      core.setOutput('commit_issues', this.setToCommaDelimitedString(commitSet));
     }
-
-    core.setOutput('commit_issues', this.setToCommaDelimitedString(commitSet));
-
     const combinedArray = [...new Set([...stringSet, ...titleSet, ...refSet, ...commitSet])];
     const ghResults = [];
 
@@ -674,15 +671,18 @@ export default class Action {
   }
 
   async formattedIssueList() {
-    return this.foundKeys
-      .map(
-        (a) =>
-          `*  **[${a.get('key')}](${this.baseUrl}/browse/${a.get('key')})** [${a.get(
-            'status',
-            'Jira Status Unknown',
-          )}] ${a.get('summary')} (Fix: #${a.get('ghNumber')})`,
-      )
-      .join('\n');
+    if (Array.isArray(this.foundKeys) && this.foundKeys.length > 0) {
+      return this.foundKeys
+        .map(
+          (a) =>
+            `*  **[${a.get('key')}](${this.baseUrl}/browse/${a.get('key')})** [${a.get(
+              'status',
+              'Jira Status Unknown',
+            )}] ${a.get('summary')} (Fix: #${a.get('ghNumber')})`,
+        )
+        .join('\n');
+    }
+    return '';
   }
 
   async outputReleaseNotes() {
@@ -732,13 +732,14 @@ export default class Action {
         const resultArray = await Promise.allSettled(issuePArray);
         result.push(...resultArray.filter((i) => i.status === 'fulfilled').map((res) => res.value));
       }
-
-      if (result.length !== 1) {
-        core.debug(`Found ${result.length} issues`);
-        core.debug(`Jira keys: ${result.map((i) => i.key).join(',')}`);
-      } else {
-        core.debug(`Jira key: ${result.map((i) => i.key).join(',')}`);
-        core.debug(`Found ${result.length} issue`);
+      if (result.length > 0) {
+        if (result.length !== 1) {
+          core.debug(`Found ${result.length} issues`);
+          core.debug(`Jira keys: ${result.map((i) => i.key).join(',')}`);
+        } else {
+          core.debug(`Jira key: ${result.map((i) => i.key).join(',')}`);
+          core.debug(`Found ${result.length} issue`);
+        }
       }
       return result;
     }
