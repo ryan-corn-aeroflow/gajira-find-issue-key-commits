@@ -1,6 +1,10 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
+import { GitHub } from '@actions/github/lib/utils';
 import { graphql } from '@octokit/graphql';
+import { throttling } from '@octokit/plugin-throttling';
+// eslint-disable-next-line lodash/import-scope
+import _ from 'lodash';
 
 export const GetStartAndEndPoints = `
 query getStartAndEndPoints($owner: String!, $repo: String!, $headRef: String!,$baseRef: String!) {
@@ -72,10 +76,28 @@ export const graphqlWithAuth = graphql.defaults({
     authorization: `token ${githubToken}`,
   },
 });
-export const octokit = github.getOctokit(githubToken);
+const OctokitThrottling = GitHub.plugin(throttling);
+export const octokit = new OctokitThrottling({
+  auth: `githubToken`,
+  throttle: {
+    onRateLimit: (retryAfter, options, oKit) => {
+      oKit.log.warn(`Request quota exhausted for request ${options.method} ${options.url}`);
+
+      if (options.request.retryCount === 0) {
+        // only retries once
+        oKit.log.info(`Retrying after ${retryAfter} seconds!`);
+        return true;
+      }
+    },
+    onSecondaryRateLimit: (_retryAfter, options, oKit) => {
+      // does not retry, only logs a warning
+      oKit.log.warn(`SecondaryRateLimit detected for request ${options.method} ${options.url}`);
+    },
+  },
+});
 
 export const { context } = github;
-export async function getPreviousReleaseRef(octo) {
+export async function getPreviousReleaseReference(octo) {
   if (!context.repo || !octo) {
     return;
   }
@@ -88,8 +110,8 @@ export async function getPreviousReleaseRef(octo) {
   return tag_name;
 }
 
-export function upperCaseFirst(str) {
-  return str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.slice(1));
+export function upperCaseFirst(string_) {
+  return _.replace(string_, /\w\S*/g, (txt) => _.toUpper(txt.charAt(0)) + txt.slice(1));
 }
 
 export const issueIdRegEx = /([\dA-Za-z]+-\d+)/g;
@@ -119,26 +141,26 @@ export function assignJiraTransition(_context, _argv) {
   }
 }
 
-export function assignRefs(_githubEvent, _context, _argv) {
-  let headRef;
-  let baseRef;
+export function assignReferences(_githubEvent, _context, _argv) {
+  let headReference;
+  let baseReference;
   if (Object.prototype.hasOwnProperty.call(_githubEvent, 'pull_request')) {
-    headRef = _githubEvent.pull_request.head.ref || null;
-    baseRef = _githubEvent.pull_request.base.ref || null;
+    headReference = _githubEvent.pull_request.head.ref || undefined;
+    baseReference = _githubEvent.pull_request.base.ref || undefined;
   } else if (Object.prototype.hasOwnProperty.call(_githubEvent, 'ref')) {
-    headRef = _githubEvent.ref || null;
-    baseRef = null;
+    headReference = _githubEvent.ref || undefined;
+    baseReference = undefined;
   }
   if (_context.eventName === 'pull_request') {
-    headRef = headRef || _context.payload?.pull_request?.head?.ref || null;
-    baseRef = baseRef || _context.payload?.pull_request?.base?.ref || null;
+    headReference = headReference || _context.payload?.pull_request?.head?.ref || undefined;
+    baseReference = baseReference || _context.payload?.pull_request?.base?.ref || undefined;
   } else if (_context.eventName === 'push') {
-    if (_context.payload?.ref && _context.payload.ref.startsWith('refs/tags')) {
-      baseRef = baseRef || getPreviousReleaseRef(github);
+    if (_context.payload?.ref && _.startsWith(_context.payload.ref, 'refs/tags')) {
+      baseReference = baseReference || getPreviousReleaseReference(github);
     }
-    headRef = headRef || _context.payload.ref || null;
+    headReference = headReference || _context.payload.ref || undefined;
   }
-  headRef = _argv.headRef || headRef || null;
-  baseRef = _argv.baseRef || baseRef || null;
-  return { headRef, baseRef };
+  headReference = _argv.headRef || headReference || undefined;
+  baseReference = _argv.baseRef || baseReference || undefined;
+  return { headRef: headReference, baseRef: baseReference };
 }

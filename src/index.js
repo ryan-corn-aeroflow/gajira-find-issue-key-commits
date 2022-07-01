@@ -1,5 +1,6 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
+import _ from 'lodash';
 import * as YAML from 'yaml';
 
 import Action from './action';
@@ -10,19 +11,22 @@ const cliConfigPath = `${process.env.HOME}/.jira.d/config.yml`;
 const configPath = `${process.env.HOME}/jira/config.yml`;
 
 export async function writeKey(result) {
-  result.forEach((issue) => {
-    core.debug(`Detected issueKey: ${issue.key}`);
-    core.debug(`Saving ${issue.key} to ${cliConfigPath}`);
-    core.debug(`Saving ${issue.key} to ${configPath}`);
-  });
+  if (result.length === 0) {
+    return;
+  }
+  const issue = result[0];
+  core.debug(`Detected issueKey: ${issue.key}`);
+  core.debug(`Saving ${issue.key} to ${cliConfigPath}`);
+  core.debug(`Saving ${issue.key} to ${configPath}`);
+
   fsHelper.mkdir(configPath);
   fsHelper.mkdir(cliConfigPath);
   try {
     // Expose created issue's key as an output
     if (fsHelper.existsSync(configPath)) {
       const _config = YAML.parse(fsHelper.loadFileSync(configPath));
-      const yamledResult = YAML.stringify(result);
-      const extendedConfig = { ..._config, ...result };
+      const yamledResult = YAML.stringify(issue);
+      const extendedConfig = { ..._config, ...issue };
 
       fsHelper.writeFileSync(configPath, YAML.stringify(extendedConfig));
 
@@ -45,7 +49,7 @@ export const exec = async () => {
       core.debug(`Error finding/parsing config file: ${error}, moving on`);
     }
 
-    const argv = parseArgs(configFromFile);
+    const argv = parseArguments(configFromFile);
     const config = {
       baseUrl: argv?.jiraConfig?.baseUrl,
       token: argv?.jiraConfig?.token,
@@ -58,13 +62,13 @@ export const exec = async () => {
       config,
     }).execute();
 
-    if (result && Array.isArray(result) && result.length > 0) {
+    if (result && _.isArray(result) && result.length > 0) {
       const outputIssues = [];
       const results = [];
-      result.forEach((item) => {
+      for (const item of result) {
         results.push(item);
         outputIssues.push(item.key);
-      });
+      }
       await Promise.all(results);
       const issueListString = outputIssues.join(',');
       core.setOutput('issues', issueListString);
@@ -79,7 +83,13 @@ export const exec = async () => {
   }
 };
 
-export function parseArgs(providedJiraConfig) {
+export function concatStringList(providedString1, providedString2) {
+  const stringArray = [..._.split(_.trim(providedString1), ','), ..._.split(_.trim(providedString2), ',')].flatMap(
+    (f) => (f && f.length > 0 ? [f] : []),
+  );
+  return [...new Set(stringArray)];
+}
+export function parseArguments(providedJiraConfig) {
   const fromList = ['string', 'commits', 'pull_request', 'branch'];
   const jiraConfig = {
     baseUrl: '',
@@ -101,7 +111,7 @@ export function parseArgs(providedJiraConfig) {
 
   return {
     string: undefinedOnEmpty(core.getInput('string')),
-    from: fromList.includes(core.getInput('from')) ? core.getInput('from') : 'commits',
+    from: _.includes(fromList, core.getInput('from')) ? core.getInput('from') : 'commits',
     headRef: undefinedOnEmpty(core.getInput('head-ref')),
     baseRef: undefinedOnEmpty(core.getInput('base-ref')),
     includeMergeMessages: core.getBooleanInput('include-merge-messages'),
@@ -118,13 +128,7 @@ export function parseArgs(providedJiraConfig) {
     gist_name: core.getInput('create-gist-output-named'),
     jiraTransition: core.getInput('jira-transition'),
 
-    fixVersions: [
-      ...new Set(
-        [(core.getInput('fix-version') ?? '').split(','), (core.getInput('fix-versions') ?? '').split(',')].map((x) =>
-          x.map((y) => y?.trim() ?? '').filter((z) => z && z !== ''),
-        ),
-      ),
-    ],
+    fixVersions: [concatStringList(core.getInput('fix-versions'), core.getInput('fix-version'))],
     replaceFixVersions: core.getBooleanInput('replace-fix-versions'),
     jiraConfig,
   };

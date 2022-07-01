@@ -5,17 +5,20 @@ import * as path from 'node:path';
 import Action from '../src/action';
 import { parseArgs } from '../src/index';
 import * as fsHelper from '../src/lib/fs-helper';
-import { githubEvent, loadEnv } from './config/constants';
+import { githubEvent, loadEnv as loadEnvironment } from './config/constants';
+
 const originalGitHubWorkspace = process.env.GITHUB_WORKSPACE;
 const gitHubWorkspace = path.resolve('/checkout-tests/workspace');
 // Shallow clone original @actions/github context
 const originalContext = { ...github.context };
 
 describe('validate that jira variables exist', () => {
-  let issueKey, owner, repo;
+  let issueKey;
+  let owner;
+  let repo;
   beforeEach(() => {
     jest.setTimeout(50_000);
-    loadEnv();
+    loadEnvironment();
     issueKey = process.env.TEST_ISSUE_KEY ?? 'UNICORN-1';
     [owner, repo] = (process.env.GITHUB_REPOSITORY || '').split('/');
     // Mock error/warning/info/debug
@@ -30,7 +33,8 @@ describe('validate that jira variables exist', () => {
       const inputValue = process.env[`INPUT_${name.toUpperCase()}`] || 'false';
       if (regMatTrue.test(inputValue)) {
         return true;
-      } else if (regMatFalse.test(inputValue)) {
+      }
+      if (regMatFalse.test(inputValue)) {
         return false;
       }
       // eslint-disable-next-line security/detect-object-injection
@@ -54,7 +58,7 @@ describe('validate that jira variables exist', () => {
     jest.spyOn(fsHelper, 'directoryExistsSync').mockImplementation((fspath) => fspath === gitHubWorkspace);
 
     // GitHub workspace
-    process.env['GITHUB_WORKSPACE'] = gitHubWorkspace;
+    process.env.GITHUB_WORKSPACE = gitHubWorkspace;
   });
 
   afterAll(() => {
@@ -94,8 +98,8 @@ describe('validate that jira variables exist', () => {
     expect.hasAssertions();
     const argv = parseArgs({});
     expect(argv.string).toContain(issueKey);
-    const j = new Action({ context: githubEvent, argv, config: argv.jiraConfig });
-    const result = await j.getIssue(issueKey);
+    const index = new Action({ context: githubEvent, argv, config: argv.jiraConfig });
+    const result = await index.getIssue(issueKey);
     expect(result.key).toBe(issueKey);
   });
 });

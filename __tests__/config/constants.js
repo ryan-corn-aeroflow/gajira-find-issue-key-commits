@@ -7,14 +7,14 @@ export function loadEnv() {
   process.env['INPUT_FIX-VERSIONS'] = '';
   process.env['INPUT_REPLACE-FIX-VERSIONS'] = 'true';
   process.env['INPUT_GIST-PRIVATE'] = 'true';
-  process.env['GITHUB_REPOSITORY'] = 'Broadshield/gajira-find-issue-key';
-  process.env['TEST_ISSUE_KEY'] = 'UNICORN-9744';
-  process.env['INPUT_STRING'] = 'There is an Issue in here UNICORN-9744 ok';
-  process.env['INPUT_FROM'] = 'commits';
+  process.env.GITHUB_REPOSITORY = 'Broadshield/gajira-find-issue-key';
+  process.env.TEST_ISSUE_KEY = 'UNICORN-9744';
+  process.env.INPUT_STRING = 'There is an Issue in here UNICORN-9744 ok';
+  process.env.INPUT_FROM = 'commits';
   process.env['INPUT_HEAD-REF'] = 'dev';
   process.env['INPUT_BASE-REF'] = 'dev';
-  process.env['INPUT_REPO'] = 'Broadshield/gajira-find-issue-key';
-  process.env['INPUT_RETURNS'] = 'all';
+  process.env.INPUT_REPO = 'Broadshield/gajira-find-issue-key';
+  process.env.INPUT_RETURNS = 'all';
 }
 export const projectKey = 'UNICORN';
 
