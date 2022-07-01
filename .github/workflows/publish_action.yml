@@ -12,4 +12,4 @@ jobs:
     permissions: write-all
     steps:
       - name: Release GitHub Actions
-        uses: technote-space/release-github-actions@v7.0.5
+        uses: technote-space/release-github-actions@v7.2.4
