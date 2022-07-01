@@ -13,7 +13,6 @@ import {
   assignJiraTransition,
   assignReferences,
   endJiraToken,
-  eventTemplates,
   GetStartAndEndPoints,
   graphqlWithAuth,
   issueIdRegEx,
@@ -135,7 +134,7 @@ export default class Action {
     return `${_.trim(fullText)}\n\n[/]: / "${startToken}"\n${insertText}\n[/]: / "${endToken}"`;
   }
 
-  async updatePullRequestBody(startToken, endToken) {
+  async updatePullRequestBody(jiraIssuesList, startToken, endToken) {
     if (!this.context.pull_request) {
       core.info(`Skipping pull request update, pull_request not found in current github context, or received event`);
 
@@ -154,9 +153,9 @@ export default class Action {
     if (this.updatePRTitle) {
       core.debug(`Current PR Title: ${title}`);
 
-      const issueKeys = _.invokeMap(this.foundKeys, (a) => a.get('key'));
+      const issueKeys = this.issueKeys(jiraIssuesList);
 
-      if (_.isArray(issueKeys)) {
+      if (issueKeys.length > 0) {
         try {
           const re = /\[?(?<issues>(?:\w{2,8}[ _-]\d{3,5}(?:[ ,]+)?)+)[ :\]_-]+(?<title>.*)?/;
 
@@ -331,9 +330,9 @@ export default class Action {
     return '';
   }
 
-  get issueKeys() {
-    if (_.isArray(this.foundKeys)) {
-      return _.invokeMap(this.foundKeys, (a) => a.get('key'));
+  issueKeys(jiraIssuesList) {
+    if (_.isArray(jiraIssuesList)) {
+      return _.map(jiraIssuesList, 'key');
     }
     return [];
   }
@@ -464,129 +463,6 @@ export default class Action {
     }
     await Promise.all(ghResults);
     core.setOutput('issues', this.setToCommaDelimitedString(combinedArray));
-    // Below is old code
-    // for (const item of commits.data.commits) {
-    //   if (item.commit && item.commit.message) {
-    //     match = item.commit.message.match(issueIdRegEx);
-    //     if (match) {
-    //       let skipCommit = false;
-
-    //       if (
-    //         _.startsWith(item.commit.message, 'Merge branch') ||
-    //         _.startsWith(item.commit.message, 'Merge pull')
-    //       ) {
-    //         core.debug('Commit message indicates that it is a merge');
-    //         if (!this.argv.includeMergeMessages) {
-    //           skipCommit = true;
-    //         }
-    //       }
-
-    //       if (skipCommit === false) {
-    //         for (const issueKey of match) {
-    //           fullArray.push(issueKey);
-    //         }
-    //       }
-    //     }
-    //   }
-    // }
-    // // Make the array Unique
-    // const uniqueKeys = [...new Set(fullArray.map((a) => _.toUpper(a)))];
-
-    // core.notice(`Unique Keys: ${uniqueKeys}\n`);
-    // // Verify that the strings that look like key match real Jira keys
-    // this.foundKeys = [];
-    // for (const issueKey of uniqueKeys) {
-    //   // Version 3 includes Sprint information, but description is in Atlassian Document Format
-    //   // Which is used only by atlassian, and we need a converter to Markdown.
-    //   // Version 2 uses Atlassian RichText for its Descriptions,
-    //   // and this can be converted to Markdown
-    //   // TODO: Harass Atlassian about conversion between their own products
-    //   const issue = await this.getIssue(issueKey, {});
-    //   const issueV2 = await this.getIssue(issueKey, { fields: ['description', 'fixVersions'] });
-    //   const issueObject = new Map();
-
-    //   if (issue) {
-    //     core.startGroup(this.style.bold.cyan(`Issue ${issue.key} raw details`));
-    //     core.debug(this.style.cyan(`Issue ${issue.key}: \n${YAML.stringify(issue)}`));
-    //     core.endGroup();
-    //     core.startGroup(this.style.bold.cyanBright(`Issue ${issue.key} collected details`));
-    //     issueObject.set('key', issue.key);
-    //     const _fixVersions = new Set(issue.fields.fixVersions.map((f) => f.name));
-    //     if (this.fixVersions) {
-    //       if (!_fixVersions.has(this.fixVersions)) {
-    //         _fixVersions.add(this.fixVersions);
-    //         // this.Jira.updateIssue()
-    //         // Update the Jira Issue to include the fix version and Project
-    //       }
-    //     }
-    //     const fixVersions = Array.from(_fixVersions);
-
-    //     try {
-    //       issueObject.set('key', issue.key);
-    //       if (_.isArray(issue.fields.customfield_10500)) {
-    //         // Pull Request
-    //         core.debug(`linked pull request: ${issue.fields.customfield_10500[0]}`);
-    //       }
-    //       issueObject.set('projectName', issue.fields.project.name);
-    //       core.debug(`project name: ${issue.fields.project.name}`);
-    //       issueObject.set('fixVersions', fixVersions);
-    //       core.debug(`fixVersions name: ${issue.fields.project.name}`);
-    //       issueObject.set('projectKey', issue.fields.project.key);
-    //       core.debug(`project key: ${issue.fields.project.key}`);
-    //       issueObject.set('priority', issue.fields.priority.name);
-    //       core.debug(`priority: ${issue.fields.priority.name}`);
-    //       issueObject.set('status', issue.fields.status.name);
-    //       core.debug(`status: ${issue.fields.status.name}`);
-    //       issueObject.set('statusCategory', issue.fields.status.statusCategory.name);
-    //       core.debug(`statusCategory: ${issue.fields.status.statusCategory.name}`);
-    //       if (_.isArray(issue.fields.customfield_11306)) {
-    //         // Assigned to
-    //         core.debug(`displayName: ${issue.fields.customfield_11306[0].displayName}`);
-    //       }
-    //       issueObject.set('summary', issue.fields.summary);
-    //       core.debug(`summary: ${issue.fields.summary}`);
-    //       if (issueV2.fields.description) {
-    //         issueObject.set('descriptionJira', issueV2.fields.description);
-    //         issueObject.set('description', this.J2M.toM(issueV2.fields.description));
-    //       }
-    //       if (issue.fields.sprint) {
-    //         issueObject.set('sprint', issue.fields.sprint.name);
-    //         issueObject.set('duedate', issue.fields.sprint.endDate);
-    //         core.startGroup(`sprint details`);
-    //         core.debug(`sprint: \n${YAML.stringify(issue.fields.sprint)}`);
-    //         core.endGroup();
-    //       }
-    //       if (issueV2.fields.sprint) {
-    //         issueObject.set('sprint', issueV2.fields.sprint.name);
-    //         issueObject.set('duedate', issueV2.fields.sprint.endDate);
-    //         core.startGroup(`JiraV2 sprint details`);
-    //         core.debug(`JiraV2 sprint: \n${YAML.stringify(issueV2.fields.sprint)}`);
-    //         core.endGroup();
-    //       }
-
-    //       // issue.fields.comment.comments[]
-    //       // issue.fields.worklog.worklogs[]
-    //     } finally {
-    //       try {
-    //         issueObject.set('ghNumber', await this.jiraToGitHub(issueObject));
-    //       } catch (error) {
-    //         core.error(error);
-    //       }
-    //       this.foundKeys.push(issueObject);
-    //     }
-    //   }
-    // }
-    // core.endGroup();
-    // core.info(
-    //   this.style.blueBright(
-    //     `Found Jira Keys  : ${style.bold(this.foundKeys.map((a) => a.get('key')))}\n`
-    //   )
-    // );
-    // core.info(
-    //   this.style.yellowBright(
-    //     `Found GitHub Keys: ${style.bold(this.foundKeys.map((a) => a.get('ghNumber')))}\n`
-    //   )
-    // );
 
     return this.foundKeys;
   }
@@ -606,13 +482,13 @@ export default class Action {
     return this.client.issues.doTransition(parameters);
   }
 
-  async transitionIssues() {
-    core.debug(this.style.bold.green(`TransitionIssues: Number of keys ${this.foundKeys.length}`));
+  async transitionIssues(jiraIssuesList) {
+    core.debug(this.style.bold.green(`TransitionIssues: Number of keys ${jiraIssuesList.length}`));
     const transitionOptionsProm = [];
 
     const issueIds = [];
 
-    for (const a of this.foundKeys) {
+    for (const a of jiraIssuesList) {
       const issueId = a.get('key');
       core.debug(this.style.bold.green(`TransitionIssues: Checking transition for ${issueId}`));
       if (this.jiraTransition && this.transitionChain) {
@@ -668,7 +544,7 @@ export default class Action {
     await Promise.all(transitionOptionsProm);
     const issuesProm = [];
     for (const issueId of issueIds) {
-      const issueObject = _.find(this.foundKeys, (indexO) => indexO.get('key') === issueId);
+      const issueObject = _.find(jiraIssuesList, (indexO) => indexO.get('key') === issueId);
       const w = this.getIssue(issueId).then((transitionedIssue) => {
         const statusName = get(transitionedIssue, 'fields.status.name');
 
@@ -681,45 +557,45 @@ export default class Action {
     await Promise.all(issuesProm);
   }
 
-  async formattedIssueList() {
-    if (_.isArray(this.foundKeys) && this.foundKeys.length > 0) {
-      return _(this.foundKeys)
-        .map(
-          (a) =>
-            `*  **[${a.get('key')}](${this.baseUrl}/browse/${a.get('key')})** [${a.get(
-              'status',
-              'Jira Status Unknown',
-            )}] ${a.get('summary')} (Fix: #${a.get('ghNumber')})`,
-        )
-        .join('\n');
+  async formattedIssueList(jiraIssuesList) {
+    if (jiraIssuesList.length > 0) {
+      return _.map(
+        jiraIssuesList,
+        (a) =>
+          `*  **[${a.get('key')}](${this.baseUrl}/browse/${a.get('key')})** [${a.get(
+            'status',
+            'Jira Status Unknown',
+          )}] ${a.get('summary')} (Fix: #${a.get('ghNumber')})`,
+      );
     }
-    return '';
+    return ['No Jira Issues Found'];
   }
 
-  async outputReleaseNotes() {
-    const issues = await this.formattedIssueList();
-
-    core.setOutput('notes', `### Release Notes:\n\n${issues}`);
+  async outputReleaseNotes(jiraIssuesList) {
+    const issues = await this.formattedIssueList(jiraIssuesList);
+    const issuesJoined = _.join(issues, '\n');
+    core.setOutput('notes', `### Release Notes:\n\n${issuesJoined}`);
+    core.setOutput('notes_raw', `${issuesJoined}`);
+    core.summary.addHeading(`Release Notes`);
+    core.summary.addList(issues);
+    core.summary.write();
   }
 
   async execute() {
     if (this.argv.from === 'string') {
-      return this.findIssueKeyIn(this.argv.string);
+      return [this.findIssueKeyIn(this.argv.string)];
     }
 
-    await this.getJiraKeysFromGitRange();
+    const jiraIssuesList = await this.getJiraKeysFromGitRange();
 
-    if (this.foundKeys.length > 0) {
-      await this.transitionIssues();
-      await this.updatePullRequestBody(startJiraToken, endJiraToken);
-      await this.outputReleaseNotes();
+    if (jiraIssuesList.length > 0) {
+      await this.transitionIssues(jiraIssuesList);
+      await this.updatePullRequestBody(jiraIssuesList, startJiraToken, endJiraToken);
+      await this.outputReleaseNotes(jiraIssuesList);
 
-      return this.foundKeys;
+      return jiraIssuesList;
     }
-
-    const templateString = eventTemplates[this.argv.from] || this.argv._.join(' ');
-    const searchString = this.preprocessString(templateString);
-    return this.findIssueKeyIn(searchString);
+    return [];
   }
 
   async findIssueKeyIn(searchString) {
