@@ -15,11 +15,11 @@ module.exports = {
         'no-plusplus': 'off',
       },
       parserOptions: {
-        ecmaVersion: 2017,
+        ecmaVersion: 'latest',
       },
 
       env: {
-        es6: true,
+        es2022: true,
       },
     },
     {
@@ -29,11 +29,11 @@ module.exports = {
     {
       files: ['**/*.cjs'],
       plugins: ['simple-import-sort', 'import'],
-      extends: [a, 'plugin:import/errors', 'eslint:recommended', pp],
+      extends: ['airbnb-base', 'plugin:import/errors', 'eslint:recommended', pp],
       env: { es2022: true, node: true },
       parser: '@babel/eslint-parser',
       parserOptions: {
-        ecmaVersion: 2022,
+        ecmaVersion: 'latest',
         sourceType: 'script',
       },
       rules: {
@@ -43,7 +43,15 @@ module.exports = {
     {
       files: ['__tests__/**/*.js'],
       plugins: ['simple-import-sort', 'import', 'jest'],
-      extends: ['plugin:import/errors', 'eslint:recommended', 'plugin:jest/all', pp],
+      extends: [
+        'plugin:unicorn/recommended',
+        'plugin:sonarjs/recommended',
+        'airbnb-base',
+        'plugin:import/errors',
+        'eslint:recommended',
+        'plugin:jest/all',
+        pp,
+      ],
       env: {
         'es2022': true,
         'jest': true,
@@ -67,8 +75,15 @@ module.exports = {
     },
     {
       files: ['src/**/*.js'],
-      plugins: ['simple-import-sort', 'import', 'github'],
-      extends: [a, 'plugin:import/errors', 'eslint:recommended', pp],
+      plugins: ['simple-import-sort', 'import', 'github', pp],
+      extends: [
+        'plugin:unicorn/recommended',
+        'plugin:sonarjs/recommended',
+        'airbnb-base',
+        'plugin:import/errors',
+        'eslint:recommended',
+        pp,
+      ],
       env: {
         es2022: true,
         node: true,
@@ -80,10 +95,12 @@ module.exports = {
 
       parser: '@babel/eslint-parser',
       parserOptions: {
-        ecmaVersion: 2022,
+        ecmaVersion: 'latest',
         sourceType: 'module',
       },
       rules: {
+        'no-undefined': 'off',
+        'no-useless-return': 'off',
         'promise/always-return': 'off',
         'sonarjs/cognitive-complexity': 'off',
         'unicorn/no-new-array': 'off',

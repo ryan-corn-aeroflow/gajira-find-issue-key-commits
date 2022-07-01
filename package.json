@@ -69,8 +69,6 @@
     "dotenv": "^16.0.1",
     "esbuild": "^0.14.42",
     "eslint": "^8.18.0",
-    "eslint-config-adjunct": "^4.11.1",
-    "eslint-config-airbnb": "^19.0.4",
     "eslint-config-airbnb-babel": "^0.2.1",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-config-airbnb-typescript": "^17.0.0",

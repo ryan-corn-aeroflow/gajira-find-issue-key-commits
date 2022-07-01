@@ -2,6 +2,7 @@ import * as core from '@actions/core';
 import ansiColors from 'ansi-colors';
 import { highlight } from 'cli-highlight';
 import { Version2Client } from 'jira.js';
+
 import get from 'lodash/get';
 import template from 'lodash/template';
 import templateSettings from 'lodash/templateSettings';
@@ -270,7 +271,8 @@ export default class Action {
 
   async getIssue(issueId, query) {
     if (typeof issueId !== 'string') {
-      throw new TypeError(`Issue ID must be a string, was: ${typeof issueId}, ${YAML.stringify(issueId)}`);
+      core.error(`Issue ID must be a string, was: ${typeof issueId}, ${YAML.stringify(issueId)}`);
+      return undefined;
     }
     const defaultFields = ['description', 'project', 'fixVersions', 'priority', 'status', 'summary', 'duedate'];
     const params = {
@@ -283,7 +285,8 @@ export default class Action {
     }
 
     return this.client.issues.getIssue(params).catch(() => {
-      throw new Error(`Error getting issue ${issueId}`);
+      core.error(`Error getting issue ${issueId}`);
+      return undefined;
     });
   }
 
@@ -712,6 +715,7 @@ export default class Action {
   }
 
   async findIssueKeyIn(searchStr) {
+    /** @type import('jira.js/out/version2/models').Issue[] */
     const result = [];
     if (typeof searchStr === 'string') {
       if (!searchStr) {
@@ -723,14 +727,18 @@ export default class Action {
       if (!match) {
         core.info(`String "${searchStr}" does not contain issueKeys`);
       } else {
+        /** @type Promise<import('jira.js/out/version2/models').Issue | undefined>[] */
         const issuePArray = [];
         match.forEach((issueKey) => {
           core.debug(`Looking up key ${issueKey} in jira`);
-          issuePArray.push(this.getIssue(issueKey));
+          const issueFound = this.getIssue(issueKey);
+          if (issueFound) {
+            issuePArray.push(issueFound);
+          }
         });
 
-        const resultArray = await Promise.allSettled(issuePArray);
-        result.push(...resultArray.filter((i) => i.status === 'fulfilled').map((res) => res.value));
+        const resultArray = await Promise.all(issuePArray);
+        result.push(...resultArray.flatMap((f) => (f ? [f] : [])));
       }
       if (result.length > 0) {
         if (result.length !== 1) {
