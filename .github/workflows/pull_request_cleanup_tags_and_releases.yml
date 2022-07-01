@@ -21,6 +21,7 @@ jobs:
   cleanup:
     name: Cleanup Tags and Releases
     runs-on: ubuntu-20.04
+    permissions: write-all
     steps:
       - name: Remove unused releases and tags
         uses: Broadshield/github-action-cleanup-releases-and-tags@main

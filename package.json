@@ -27,7 +27,7 @@
     "prelint": "yarn exec pretty-quick",
     "prebump": "{ git status --porcelain  | grep -e -q '^$' || echo \"Git is dirty, commit first\"; } && yarn lint && yarn build",
     "bump": "yarn version -i ",
-    "postbump": "git tag v$npm_package_version -am v$npm_package_version && git push --tags",
+    "postbump": "git tag v$npm_package_version -am v$npm_package_version 2>/dev/null; git push -f --tags",
     "bump:patch": "yarn bump patch",
     "bump:minor": "yarn bump minor",
     "postpostbump": "yarn lint && yarn test && yarn build",

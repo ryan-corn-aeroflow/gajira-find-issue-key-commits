@@ -6,6 +6,7 @@ on:
 jobs:
   eslint:
     name: runner / eslint
+    permissions: write-all
     strategy:
       matrix:
         directory: ['./']
@@ -17,8 +18,8 @@ jobs:
 
       - uses: actions/setup-node@v3
         with:
-          node-version: '16'
-          cache: 'npm'
+          node-version: '16.10'
+          cache: 'yarn'
 
       - name: get email
         id: user
@@ -35,7 +36,7 @@ jobs:
       - name: Install Packages
         continue-on-error: true
         run: |
-          npm install
+          yarn install
 
       - name: eslint fix
         working-directory: ${{ matrix.directory }}
@@ -43,7 +44,7 @@ jobs:
         id: fix
         continue-on-error: true
         run: |
-          npm run lint
+          yarn run lint
 
       - name: Commit Fixes
         working-directory: ${{ matrix.directory }}
@@ -52,7 +53,7 @@ jobs:
         run: |
           if [[ -n $(git status -s) ]]; then
             git add .
-            git commit -m "Auto-fixed linting errors - remember to run 'npm run lint:ts' before committing"
+            git commit -m "Auto-fixed linting errors - remember to run 'yarn run lint:ts' before committing"
             git push
           fi
 
