@@ -32,7 +32,7 @@ jobs:
           pr_number: ${{ github.event.inputs.pr_number }}
 
       - name: Delete workflow runs
-        uses: MajorScruffy/delete-workflow-runs@v0.1.0
+        uses: MajorScruffy/delete-workflow-runs@v0.2.0
         id: delete-workflow-runs
         with:
           what-if: 'false'
