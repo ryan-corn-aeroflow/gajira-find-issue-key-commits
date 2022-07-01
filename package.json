@@ -1,6 +1,6 @@
 {
   "name": "@broadshield/gajira-find-issue-key",
-  "version": "2.0.3",
+  "version": "2.1.1",
   "description": "",
   "main": "lib/index.js",
   "type": "commonjs",
@@ -25,6 +25,12 @@
     "build": "yarn exec esbuild src/index.js --bundle --outdir=lib/ --platform=node --target=node16.10 --sourcemap --format=cjs",
     "test:act": "act -v",
     "prelint": "yarn exec pretty-quick",
+    "prebump": "{ git status --porcelain  | grep -e -q '^$' || echo \"Git is dirty, commit first\"; } && yarn lint && yarn build",
+    "bump": "yarn version -i ",
+    "postbump": "git tag v$npm_package_version -am v$npm_package_version && git push --tags",
+    "bump:patch": "yarn bump patch",
+    "bump:minor": "yarn bump minor",
+    "postpostbump": "yarn lint && yarn test && yarn build",
     "lint": "yarn exec eslint --fix src/ __tests__/"
   },
   "license": "ISC",
@@ -35,6 +41,7 @@
   "dependencies": {
     "@actions/core": "^1.9.0",
     "@actions/github": "^5.0.3",
+    "@octokit/core": "^3.6.0",
     "@octokit/graphql": "^4.8.0",
     "@octokit/graphql-schema": "^10.74.1",
     "@octokit/plugin-throttling": "^3.7.0",

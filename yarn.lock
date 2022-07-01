@@ -1546,6 +1546,7 @@ __metadata:
     "@babel/plugin-proposal-decorators": ^7.18.6
     "@babel/preset-env": ^7.18.6
     "@bitflight-devops/github-action-readme-generator": ^1.1.5
+    "@octokit/core": ^3.6.0
     "@octokit/graphql": ^4.8.0
     "@octokit/graphql-schema": ^10.74.1
     "@octokit/plugin-throttling": ^3.7.0
