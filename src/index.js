@@ -61,23 +61,7 @@ export const exec = async () => {
       argv,
       config,
     }).execute();
-
-    if (result && _.isArray(result) && result.length > 0) {
-      const outputIssues = [];
-      const results = [];
-      for (const item of result) {
-        results.push(item);
-        outputIssues.push(item.key);
-      }
-      await Promise.all(results);
-      const issueListString = outputIssues.join(',');
-      core.setOutput('issues', issueListString);
-      core.setOutput('issue', outputIssues[0]);
-
-      await writeKey(result);
-    } else {
-      core.debug('No issueKeys found.');
-    }
+    await writeKey(result);
   } catch (error) {
     core.setFailed(error);
   }

@@ -576,26 +576,23 @@ export default class Action {
     const issuesJoined = _.join(issues, '\n');
     core.setOutput('notes', `### Release Notes:\n\n${issuesJoined}`);
     core.setOutput('notes_raw', `${issuesJoined}`);
-    core.summary.addHeading(`Release Notes`);
-    core.summary.addList(issues);
-    core.summary.write();
+    core.summary.addHeading(`Release Notes`).addList(issues).write();
   }
 
+  /** @returns {Promise<import('jira.js/out/version2/models').Issue[]>} */
   async execute() {
     if (this.argv.from === 'string') {
-      return [this.findIssueKeyIn(this.argv.string)];
+      return this.findIssueKeyIn(this.argv.string);
     }
 
     const jiraIssuesList = await this.getJiraKeysFromGitRange();
+    await Promise.all([
+      this.transitionIssues(jiraIssuesList),
+      this.outputReleaseNotes(jiraIssuesList),
+      this.updatePullRequestBody(jiraIssuesList, startJiraToken, endJiraToken),
+    ]);
 
-    if (jiraIssuesList.length > 0) {
-      await this.transitionIssues(jiraIssuesList);
-      await this.updatePullRequestBody(jiraIssuesList, startJiraToken, endJiraToken);
-      await this.outputReleaseNotes(jiraIssuesList);
-
-      return jiraIssuesList;
-    }
-    return [];
+    return jiraIssuesList;
   }
 
   async findIssueKeyIn(searchString) {
@@ -633,8 +630,8 @@ export default class Action {
           core.debug(`Found ${result.length} issue`);
         }
       }
-      return result;
     }
+    return result;
   }
 
   preprocessString(string_) {
