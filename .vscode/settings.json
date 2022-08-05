@@ -22,5 +22,5 @@
   "eslint.workingDirectories": [{ "mode": "auto" }],
   "eslint.format.enable": false,
   "jest.autoRun": "off",
-  "jest.jestCommandLine": "yarn exec jest"
+  "jest.jestCommandLine": "bun run jest"
 }

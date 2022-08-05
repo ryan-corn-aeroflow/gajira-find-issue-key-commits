@@ -5,3 +5,4 @@ dist/
 src/@types
 src/*.d.ts
 action.yml
+.eslint.cjs
