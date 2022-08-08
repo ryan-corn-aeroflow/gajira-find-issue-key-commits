@@ -1,11 +1,12 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
+import _ from 'lodash';
 import * as path from 'node:path';
+import { parseArguments } from '../src';
 
 import Action from '../src/action';
-import { parseArgs } from '../src/index';
 import * as fsHelper from '../src/lib/fs-helper';
-import { githubEvent, loadEnv as loadEnvironment } from './config/constants';
+import { githubEvent, loadEnvironment } from './config/constants';
 
 const originalGitHubWorkspace = process.env.GITHUB_WORKSPACE;
 const gitHubWorkspace = path.resolve('/checkout-tests/workspace');
@@ -20,7 +21,7 @@ describe('validate that jira variables exist', () => {
     jest.setTimeout(50_000);
     loadEnvironment();
     issueKey = process.env.TEST_ISSUE_KEY ?? 'UNICORN-1';
-    [owner, repo] = (process.env.GITHUB_REPOSITORY || '').split('/');
+    [owner, repo] = _.split(process.env.GITHUB_REPOSITORY || '', '/');
     // Mock error/warning/info/debug
     jest.spyOn(core, 'error').mockImplementation(console.log);
     jest.spyOn(core, 'warning').mockImplementation(console.log);
@@ -30,14 +31,13 @@ describe('validate that jira variables exist', () => {
     jest.spyOn(core, 'getBooleanInput').mockImplementation((name) => {
       const regMatTrue = /(true|True|TRUE)/;
       const regMatFalse = /(false|False|FALSE)/;
-      const inputValue = process.env[`INPUT_${name.toUpperCase()}`] || 'false';
+      const inputValue = process.env[`INPUT_${_.toUpper(name)}`] || 'false';
       if (regMatTrue.test(inputValue)) {
         return true;
       }
       if (regMatFalse.test(inputValue)) {
         return false;
       }
-      // eslint-disable-next-line security/detect-object-injection
       throw new Error(`
       JEST: TypeError: Input does not meet YAML 1.2 "Core Schema" specification: ${name}
       Support boolean input list: true | True | TRUE | false | False | FALSE
@@ -78,8 +78,8 @@ describe('validate that jira variables exist', () => {
 
   it('check for Jira Environment Variables', () => {
     expect.hasAssertions();
-    const argv = parseArgs({});
-    expect(Object.keys(argv.jiraConfig)).toHaveLength(3);
+    const argv = parseArguments({});
+    expect(_.keys(argv.jiraConfig)).toHaveLength(3);
     const { baseUrl, email, token } = argv.jiraConfig;
     expect(baseUrl).toBeTruthy();
     expect(email).toBeTruthy();
@@ -88,7 +88,7 @@ describe('validate that jira variables exist', () => {
 
   it('jira Base Url includes HTTPS', () => {
     expect.hasAssertions();
-    const argv = parseArgs({});
+    const argv = parseArguments({});
     expect(argv.jiraConfig.baseUrl).toBeDefined();
     const { baseUrl } = argv.jiraConfig;
     expect(baseUrl.slice(0, 5)).toBe('https');
@@ -96,10 +96,10 @@ describe('validate that jira variables exist', () => {
 
   it('gets a Jira Issue', async () => {
     expect.hasAssertions();
-    const argv = parseArgs({});
+    const argv = parseArguments({});
     expect(argv.string).toContain(issueKey);
     const index = new Action({ context: githubEvent, argv, config: argv.jiraConfig });
     const result = await index.getIssue(issueKey);
-    expect(result.key).toBe(issueKey);
+    expect(result[0].key).toBe(issueKey);
   });
 });

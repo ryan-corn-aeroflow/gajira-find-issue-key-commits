@@ -77,12 +77,14 @@ module.exports = {
         sourceType: 'module',
       },
       rules: {
+        'lodash/import-scope': 'off',
         '@babel/new-cap': 'error',
         '@babel/no-invalid-this': 'error',
         '@babel/no-unused-expressions': 'error',
-        '@babel/object-curly-spacing': 'error',
+        '@babel/object-curly-spacing': 'off',
         '@babel/semi': 'error',
         'camelcase': 'off',
+        'no-console': 'off',
         'class-methods-use-this': 'off',
         'consistent-return': 'off',
         'jest/no-hooks': 'off',
@@ -130,7 +132,7 @@ module.exports = {
       parser: '@babel/eslint-parser',
       parserOptions: {
         requireConfigFile: false,
-        sourceType: 'script',
+        sourceType: 'module',
         ecmaVersion: 'latest',
         ecmaFeatures: {
           impliedStrict: true,

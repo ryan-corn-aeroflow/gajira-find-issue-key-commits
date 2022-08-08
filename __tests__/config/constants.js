@@ -1,4 +1,4 @@
-export function loadEnv() {
+export function loadEnvironment() {
   process.env['INPUT_INCLUDE-MERGE-MESSAGES'] = 'false';
   process.env['INPUT_GENERATE-GITHUB-MILESTONES'] = 'true';
   process.env['INPUT_GENERATE-GITHUB-ISSUES'] = 'true';
