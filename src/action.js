@@ -508,7 +508,7 @@ export default class Action {
     const issueIds = [];
 
     for (const a of jiraIssuesList) {
-      const issueId = a.get('key');
+      const issueId = a?.key;
       core.debug(this.style.bold.green(`TransitionIssues: Checking transition for ${issueId}`));
       if (this.jiraTransition && this.transitionChain) {
         transitionOptionsProm.push(
@@ -563,7 +563,7 @@ export default class Action {
     await Promise.all(transitionOptionsProm);
     const issuesProm = [];
     for (const issueId of issueIds) {
-      const issueObject = _.find(jiraIssuesList, (indexO) => indexO.get('key') === issueId);
+      const issueObject = _.find(jiraIssuesList, (indexO) => indexO?.key === issueId);
       const w = this.getIssue(issueId).then((transitionedIssue) => {
         const statusName = get(transitionedIssue, 'fields.status.name');
 
@@ -581,10 +581,10 @@ export default class Action {
       return _.map(
         jiraIssuesList,
         (a) =>
-          `*  **[${a.get('key')}](${this.baseUrl}/browse/${a.get('key')})** [${a.get(
-            'status',
-            'Jira Status Unknown',
-          )}] ${a.get('summary')} (Fix: #${a.get('ghNumber')})`,
+          a &&
+          `*  **[${a?.key}](${this.baseUrl}/browse/${a?.key ?? 'unknown'})** [${a?.status ?? 'Jira Status Unknown'}] ${
+            a?.summary ?? 'unknown'
+          } (Fix: #${a?.ghNumber ?? 'unknown'})`,
       );
     }
     return ['No Jira Issues Found'];
