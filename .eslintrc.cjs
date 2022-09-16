@@ -61,7 +61,7 @@ module.exports = {
         'airbnb-base',
         'plugin:import/errors',
         'eslint:recommended',
-        'plugin:jest/all',
+        'plugin:jest/recommended',
         pp,
       ],
       env: {

@@ -78,7 +78,7 @@ export const graphqlWithAuth = graphql.defaults({
 });
 const OctokitThrottling = GitHub.plugin(throttling);
 export const octokit = new OctokitThrottling({
-  auth: `githubToken`,
+  auth: `${githubToken}`,
   throttle: {
     onRateLimit: (retryAfter, options, oKit) => {
       oKit.log.warn(`Request quota exhausted for request ${options.method} ${options.url}`);

@@ -186,7 +186,7 @@ export default class Action {
   async createOrUpdateGHIssue(issueKey, issueTitle, issueBody, _issueAssignee, milestoneNumber) {
     core.debug(`Getting list of issues`);
 
-    /** @type {import('@octokit/plugin-rest-endpoint-methods').RestEndpointMethodTypes["issues"]["listForRepo"]["response"]} */
+    /** @type {import('@actions/github/node_modules/@octokit/plugin-rest-endpoint-methods').RestEndpointMethodTypes["issues"]["listForRepo"]["response"] | undefined} */
     const issues = await this.github.rest.issues.listForRepo({
       ...this.context.repo,
       state: 'open',
@@ -337,6 +337,7 @@ export default class Action {
     return [];
   }
 
+  /** @return {import('@octokit/graphql/dist-types/types').GraphQlResponse<any>} */
   async getRepositoriesNodes(after) {
     return graphqlWithAuth(listCommitMessagesInPullRequest, {
       owner: this.context.repo.owner,
@@ -344,7 +345,7 @@ export default class Action {
       prNumber: this.context.payload?.pull_request?.number,
       after,
     }).then(
-      (result) => {
+      async (result) => {
         const { repository } = result;
         if (repository?.pullRequest?.commits?.nodes) {
           const { totalCount = 0, pageInfo, nodes } = repository.pullRequest.commits;
@@ -352,13 +353,15 @@ export default class Action {
             return [...nodes];
           }
           if (pageInfo && pageInfo.hasNextPage === true) {
-            return [...nodes, ...this.getRepositoriesNodes(pageInfo.endCursor)];
+            const remainingNodes = await this.getRepositoriesNodes(pageInfo.endCursor);
+            return [...nodes, ...remainingNodes];
           }
         }
         return [];
       },
       (error) => {
         core.error(error);
+        return [];
       },
     );
   }

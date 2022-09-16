@@ -163,4 +163,4 @@ outputs:
     description: The name of the Gist created
 runs:
   using: 'node16'
-  main: 'lib/index.js'
+  main: 'lib/index.mjs'

@@ -34,19 +34,16 @@ const shimBanner = {
 /**
  * ESNext + ESM, bundle: true, and require() shim in banner.
  */
-const buildOptions = {
-  entryPoints: ['src/index.ts'],
-  sourcemap: true,
-  platform: 'node',
-  outfile: 'lib/main.js',
-  target: 'node16',
-  format: 'esm',
-  banner: bundle ? shimBanner : undefined,
-  bundle,
-};
 
 require('esbuild')
   .build({
-    ...buildOptions,
+    entryPoints: ['src/index.js'],
+    sourcemap: true,
+    platform: 'node',
+    outfile: 'lib/index.mjs',
+    target: 'node16',
+    format: 'esm',
+    banner: bundle ? shimBanner : undefined,
+    bundle,
   })
   .catch(() => process.exit(1));
