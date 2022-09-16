@@ -1,4 +1,5 @@
 import * as core from '@actions/core';
+import { Context } from '@actions/github/lib/context';
 import ansiColors from 'ansi-colors';
 import { highlight } from 'cli-highlight';
 import { Version2Client } from 'jira.js';
@@ -50,7 +51,8 @@ export default class Action {
     this.config = config;
     this.argv = argv;
     this.rawString = this.argv.string ?? config.string;
-    this.context = context || context.payload;
+    /** @type {Context} */
+    this.context = context;
     this.github = octokit;
     this.createIssue = argv.createIssue;
     this.updatePRTitle = argv.updatePRTitle;
@@ -135,7 +137,7 @@ export default class Action {
   }
 
   async updatePullRequestBody(jiraIssuesList, startToken, endToken) {
-    if (!this.context.pull_request) {
+    if (!this.context.payload.pull_request) {
       core.info(`Skipping pull request update, pull_request not found in current github context, or received event`);
 
       return;
@@ -143,7 +145,7 @@ export default class Action {
     const issues = await this.formattedIssueList();
     const text = `### Linked Jira Issues:\n\n${issues}\n`;
 
-    const { number, body, title } = this.context.pull_request;
+    const { number, body, title } = this.context.payload.pull_request;
 
     core.debug(`Updating PR number ${number}`);
     core.debug(`With text:\n ${text}`);
@@ -373,7 +375,7 @@ export default class Action {
       core.setOutput('string_issues', this.setToCommaDelimitedString(stringSet));
     }
 
-    const titleSet = this.getIssueSetFromString(this.context?.pull_request?.title);
+    const titleSet = this.getIssueSetFromString(this.context?.payload.pull_request?.title);
     if (_.startsWith(this.context.eventName, 'pull_request')) {
       core.debug(`Pull request title is: ${this.context.payload?.pull_request?.title}`);
       core.setOutput('title_issues', this.setToCommaDelimitedString(titleSet));
