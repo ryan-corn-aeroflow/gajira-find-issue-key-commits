@@ -83,9 +83,9 @@ export default class Action {
       ...this.context.repo,
       state: 'all',
     });
-    if (milestones.data) {
+    if (milestones?.data) {
       const milestone = _.filter(milestones.data, ['title', issueMilestone]);
-      if (milestone.length === 1) {
+      if (milestone && milestone.length === 1) {
         return milestone[0];
       }
     }
