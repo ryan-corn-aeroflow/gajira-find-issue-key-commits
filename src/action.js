@@ -92,35 +92,49 @@ export default class Action {
     core.debug(this.style.bold.yellow(`Milestone: Existing milestone not found.`));
   }
 
-  async createOrUpdateMilestone(issueMilestone, issueMilestoneDueDate, issueMilestoneDescription) {
+  async createOrUpdateMilestone(
+    issueMilestone,
+    /** type {string} */ issueMilestoneDueDate,
+    /** type {string} */ issueMilestoneDescription,
+  ) {
     core.debug(this.style.bold.yellow.underline(`createOrUpdateMilestone: issueMilestone is ${issueMilestone}`));
 
     const foundMilestone = await this.findGithubMilestone(issueMilestone);
-
+    const duedateData = {};
+    if (issueMilestoneDueDate) {
+      // YYYY-MM-DDTHH:MM:SSZ | ISO 8601
+      duedateData.due_on = issueMilestoneDueDate;
+    }
     if (foundMilestone) {
-      this.github.rest.issues.updateMilestone({
+      try {
+        this.github.rest.issues.updateMilestone({
+          ...this.context.repo,
+          milestone_number: foundMilestone.number,
+          description: issueMilestoneDescription,
+          state: 'open',
+          ...duedateData,
+        });
+        core.info(this.style.bold.yellow(`Milestone: ${issueMilestone} with number ${foundMilestone.number} updated`));
+        return foundMilestone.number;
+      } catch (error) {
+        core.error('createOrUpdateMilestone', error);
+      }
+    }
+    try {
+      const newMilestone = await this.github.rest.issues.createMilestone({
         ...this.context.repo,
-        milestone_number: foundMilestone.number,
+        title: `${issueMilestone}`,
         description: issueMilestoneDescription,
         state: 'open',
-        due_on: issueMilestoneDueDate,
+        ...duedateData,
       });
-      core.info(this.style.bold.yellow(`Milestone: ${issueMilestone} with number ${foundMilestone.number} updated`));
-      return foundMilestone.number;
+      core.info(this.style.bold.yellow(`Milestone: ${issueMilestone} with number ${newMilestone.data.number} created`));
+
+      return newMilestone.data.number;
+    } catch (error) {
+      core.error('createOrUpdateMilestone', error);
+      return -1;
     }
-
-    const newMilestone = await this.github.rest.issues.createMilestone({
-      ...this.context.repo,
-      title: `${issueMilestone}`,
-      description: issueMilestoneDescription,
-      state: 'open',
-      // YYYY-MM-DDTHH:MM:SSZ | ISO 8601
-      due_on: issueMilestoneDueDate,
-    });
-
-    core.info(this.style.bold.yellow(`Milestone: ${issueMilestone} with number ${newMilestone.data.number} created`));
-
-    return newMilestone.data.number;
   }
 
   async updateStringByToken(startToken, endToken, fullText, insertText) {
