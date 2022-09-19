@@ -85,8 +85,8 @@ export default class Action {
     });
     if (milestones?.data) {
       const milestone = _.filter(milestones.data, ['title', issueMilestone]);
-      if (milestone && milestone.length === 1) {
-        return milestone[0];
+      if (milestone) {
+        return milestone;
       }
     }
     core.debug(this.style.bold.yellow(`Milestone: Existing milestone not found.`));
@@ -99,14 +99,15 @@ export default class Action {
   ) {
     core.debug(this.style.bold.yellow.underline(`createOrUpdateMilestone: issueMilestone is ${issueMilestone}`));
 
-    const foundMilestone = await this.findGithubMilestone(issueMilestone);
+    const foundMilestones = await this.findGithubMilestone(issueMilestone);
     const duedateData = {};
     if (issueMilestoneDueDate) {
       // YYYY-MM-DDTHH:MM:SSZ | ISO 8601
       duedateData.due_on = issueMilestoneDueDate;
     }
-    if (foundMilestone) {
+    if (!_.isUndefined(foundMilestones) && foundMilestones.length > 0) {
       try {
+        const foundMilestone = foundMilestones[0];
         this.github.rest.issues.updateMilestone({
           ...this.context.repo,
           milestone_number: foundMilestone.number,
@@ -121,16 +122,19 @@ export default class Action {
       }
     }
     try {
-      const newMilestone = await this.github.rest.issues.createMilestone({
-        ...this.context.repo,
-        title: `${issueMilestone}`,
-        description: issueMilestoneDescription,
-        state: 'open',
-        ...duedateData,
-      });
-      core.info(this.style.bold.yellow(`Milestone: ${issueMilestone} with number ${newMilestone.data.number} created`));
-
-      return newMilestone.data.number;
+      const milestoneNumber = await this.github.rest.issues
+        .createMilestone({
+          ...this.context.repo,
+          title: `${issueMilestone}`,
+          description: issueMilestoneDescription,
+          state: 'open',
+          ...duedateData,
+        })
+        .then((resp) => {
+          return resp.data.number;
+        });
+      core.info(this.style.bold.yellow(`Milestone: ${issueMilestone} with number ${milestoneNumber} created`));
+      return milestoneNumber;
     } catch (error) {
       core.error('createOrUpdateMilestone', error);
       return -1;

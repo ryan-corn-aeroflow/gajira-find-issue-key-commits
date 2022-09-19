@@ -15,3 +15,6 @@ package-lock.json
 elements/
 e2e/reports
 *.min.*
+.yarn/
+.husky/node_modules
+.trunk/

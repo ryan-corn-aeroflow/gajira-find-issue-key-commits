@@ -2926,12 +2926,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@trunkio/launcher@npm:latest":
-  version: 1.1.1
-  resolution: "@trunkio/launcher@npm:1.1.1"
+"@trunkio/launcher@npm:^1.2.1":
+  version: 1.2.1
+  resolution: "@trunkio/launcher@npm:1.2.1"
   bin:
     trunk: trunk
-  checksum: 5f7f98aeb2b82cc202497e33635265cc1566a74895cf5199c8e8e97b8409221b51983a49a4ba20508563fc1b93f5e03fac6bcb05fac4444780cb9ec85989371a
+  checksum: a2facf345b7ba7662bb0504f2a3191a15b34b8465898561e207225e9dc7706fdf2362c1225846111a750fe4adf90ef202c445540f9e2119af952167bcf4156d4
   languageName: node
   linkType: hard
 
@@ -5292,6 +5292,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"esbuild-plugin-eslint@npm:^0.1.1":
+  version: 0.1.1
+  resolution: "esbuild-plugin-eslint@npm:0.1.1"
+  peerDependencies:
+    esbuild: ^0.15.5
+    eslint: ^8.22.0
+  checksum: a1e0d8a6c4e9ef84b74ba2baeeeb459f2e44d46460bd976420ab44be3fda16db80012711e1242d6b80aa9100fdedcbfea6389b8e7133176f759b87de0f71d0f0
+  languageName: node
+  linkType: hard
+
 "esbuild-sunos-64@npm:0.15.7":
   version: 0.15.7
   resolution: "esbuild-sunos-64@npm:0.15.7"
@@ -6432,7 +6442,7 @@ __metadata:
     "@octokit/webhooks-definitions": ^3.67.3
     "@prettier/plugin-ruby": ^3.2.0
     "@prettier/plugin-xml": ^2.2.0
-    "@trunkio/launcher": latest
+    "@trunkio/launcher": ^1.2.1
     "@tsconfig/node16": ^1.0.3
     "@types/babel__core": ^7
     "@types/babel__preset-env": ^7
@@ -6451,6 +6461,7 @@ __metadata:
     cli-highlight: ^2.1.11
     dotenv: ^16.0.2
     esbuild: ^0.15.7
+    esbuild-plugin-eslint: ^0.1.1
     eslint: ^8.23.1
     eslint-config-airbnb-base: ^15.0.0
     eslint-config-prettier: ^8.5.0

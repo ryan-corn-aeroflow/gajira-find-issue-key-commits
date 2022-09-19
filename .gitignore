@@ -11,6 +11,9 @@ node_modules
 
 # IDE
 !.vscode
+.trunk/actions
+.trunk/notifications
+.trunk/logs
 
 junit.xml
 setup.js

@@ -9,7 +9,7 @@
     "url": "git+https://github.com/Broadshield/gajira-find-issue-key.git",
     "directory": "."
   },
-  "keywords": ["actions", "github", "jira", "node16", "tickets"],
+  "keywords": ["actions", "github", "jira", "node16", "tickets", "jira server", "github enterprise", "sprint", "milestone", "workflow"],
   "engines": {
     "node": ">=16.10.0"
   },
@@ -21,18 +21,20 @@
     "postinstall": "",
     "runtime": "./runtime.js",
     "test": "NODE_ENV=testing yarn exec jest",
-    "prepare": "husky install",
+    "prepare": "[ -n ${GITHUB_ACTIONS:-} ] || husky install",
     "build": "rimraf lib && node .github/scripts/esbuild.cjs",
     "build:inline": "rimraf lib && esbuild src/index.js --bundle --outdir=lib/ --platform=node --target=node16.10 --sourcemap --format=cjs",
     "test:act": "act -v",
     "prelint": "pretty-quick",
+    "format": "prettier --write . --config .prettierrc.cjs --ignore-unknown",
     "prebump": "{ git status --porcelain  | grep -e -q '^$' || echo \"Git is dirty, commit first\"; } && yarn lint && yarn build",
     "bump": "yarn version -i ",
     "postbump": "git tag v$npm_package_version -am v$npm_package_version 2>/dev/null; git push -f --tags",
     "bump:patch": "yarn bump patch",
     "bump:minor": "yarn bump minor",
     "postpostbump": "yarn lint && yarn test && yarn build",
-    "lint": "eslint --fix --config .eslintrc.cjs src/ __tests__/"
+    "lint": "eslint --fix --config .eslintrc.cjs src/ __tests__/",
+    "generate-docs": "yarn exec github-action-readme-generator && yarn exec pretty-quick && git add .ghadocs.json README.md"
   },
   "license": "ISC",
   "resolutions": {
@@ -68,7 +70,7 @@
     "@octokit/types": "^7.5.0",
     "@prettier/plugin-ruby": "^3.2.0",
     "@prettier/plugin-xml": "^2.2.0",
-    "@trunkio/launcher": "latest",
+    "@trunkio/launcher": "^1.2.1",
     "@tsconfig/node16": "^1.0.3",
     "@types/babel__core": "^7",
     "@types/babel__preset-env": "^7",
@@ -83,6 +85,7 @@
     "bun-types": "latest",
     "dotenv": "^16.0.2",
     "esbuild": "^0.15.7",
+    "esbuild-plugin-eslint": "^0.1.1",
     "eslint": "^8.23.1",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-config-prettier": "^8.5.0",
