@@ -1,10 +1,8 @@
-import * as core from '@actions/core';
-import * as github from '@actions/github';
-import { GitHub } from '@actions/github/lib/utils';
-import { graphql } from '@octokit/graphql';
-import { throttling } from '@octokit/plugin-throttling';
 // eslint-disable-next-line lodash/import-scope
 import _ from 'lodash';
+import { context, getGithubToken } from '@broadshield/github-actions-core-typed-inputs';
+import { createOctokit } from '@broadshield/github-actions-octokit-hydrated';
+import { graphql } from '@octokit/graphql';
 
 export const GetStartAndEndPoints = `
 query getStartAndEndPoints($owner: String!, $repo: String!, $headRef: String!,$baseRef: String!) {
@@ -65,38 +63,14 @@ export function undefinedOnEmpty(value) {
   }
   return value;
 }
-export const githubToken =
-  undefinedOnEmpty(core.getInput('github_token', { required: false })) ??
-  undefinedOnEmpty(core.getInput('github-token', { required: false })) ??
-  undefinedOnEmpty(core.getInput('token', { required: false })) ??
-  process.env.GITHUB_TOKEN ??
-  'NO_TOKEN';
+export const githubToken = getGithubToken('github-token', process.env.GITHUB_TOKEN);
 export const graphqlWithAuth = graphql.defaults({
   headers: {
     authorization: `token ${githubToken}`,
   },
 });
-const OctokitThrottling = GitHub.plugin(throttling);
-export const octokit = new OctokitThrottling({
-  auth: `${githubToken}`,
-  throttle: {
-    onRateLimit: (retryAfter, options, oKit) => {
-      oKit.log.warn(`Request quota exhausted for request ${options.method} ${options.url}`);
 
-      if (options.request.retryCount === 0) {
-        // only retries once
-        oKit.log.info(`Retrying after ${retryAfter} seconds!`);
-        return true;
-      }
-    },
-    onSecondaryRateLimit: (_retryAfter, options, oKit) => {
-      // does not retry, only logs a warning
-      oKit.log.warn(`SecondaryRateLimit detected for request ${options.method} ${options.url}`);
-    },
-  },
-});
-
-export const { context } = github;
+export const octokit = createOctokit(githubToken);
 export async function getPreviousReleaseReference(octo) {
   if (!context.repo || !octo) {
     return;
@@ -156,7 +130,7 @@ export function assignReferences(_githubEvent, _context, _argv) {
     baseReference = baseReference || _context.payload?.pull_request?.base?.ref || undefined;
   } else if (_context.eventName === 'push') {
     if (_context.payload?.ref && _.startsWith(_context.payload.ref, 'refs/tags')) {
-      baseReference = baseReference || getPreviousReleaseReference(github);
+      baseReference = baseReference || getPreviousReleaseReference(octokit);
     }
     headReference = headReference || _context.payload.ref || undefined;
   }

@@ -1,17 +1,31 @@
-import * as core from '@actions/core';
-import * as github from '@actions/github';
 import _ from 'lodash';
+import * as ghac from '@broadshield/github-actions-core-typed-inputs';
 import * as path from 'node:path';
+import { cwd } from 'node:process';
 import { parseArguments } from '../src';
-
 import Action from '../src/action';
 import * as fsHelper from '../src/lib/fs-helper';
 import { githubEvent, loadEnvironment } from './config/constants';
 
+const tmpFolder = path.join(cwd(), 'tmp');
+fsHelper.mkdir(tmpFolder);
+process.env.SUMMARY_ENV_VAR = process.env.SUMMARY_ENV_VAR ?? path.join(tmpFolder, 'step-summary-env.txt');
+process.env.GITHUB_STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY ?? path.join(tmpFolder, 'step-summary.txt');
+process.env.GITHUB_ENV = process.env.GITHUB_ENV ?? path.join(tmpFolder, 'env-vars.txt');
+process.env.GITHUB_OUTPUT = process.env.GITHUB_OUTPUT ?? path.join(tmpFolder, 'output-vars.txt');
+const filePaths = [
+  process.env.SUMMARY_ENV_VAR,
+  process.env.GITHUB_STEP_SUMMARY,
+  process.env.GITHUB_ENV,
+  process.env.GITHUB_OUTPUT,
+];
+_.forEach(filePaths, (filePath) => {
+  fsHelper.appendFileSync(filePath, '');
+});
 const originalGitHubWorkspace = process.env.GITHUB_WORKSPACE;
 const gitHubWorkspace = path.resolve('/checkout-tests/workspace');
 // Shallow clone original @actions/github context
-const originalContext = { ...github.context };
+const originalContext = { ...ghac.context };
 
 describe('validate that jira variables exist', () => {
   let issueKey;
@@ -23,36 +37,22 @@ describe('validate that jira variables exist', () => {
     issueKey = process.env.TEST_ISSUE_KEY ?? 'UNICORN-1';
     [owner, repo] = _.split(process.env.GITHUB_REPOSITORY || '', '/');
     // Mock error/warning/info/debug
-    jest.spyOn(core, 'error').mockImplementation(console.log);
-    jest.spyOn(core, 'warning').mockImplementation(console.log);
-    jest.spyOn(core, 'info').mockImplementation(console.log);
-    jest.spyOn(core, 'debug').mockImplementation(console.log);
-    jest.spyOn(core, 'notice').mockImplementation(console.log);
-    jest.spyOn(core, 'getBooleanInput').mockImplementation((name) => {
-      const regMatTrue = /(true|True|TRUE)/;
-      const regMatFalse = /(false|False|FALSE)/;
-      const inputValue = process.env[`INPUT_${_.toUpper(name)}`] || 'false';
-      if (regMatTrue.test(inputValue)) {
-        return true;
-      }
-      if (regMatFalse.test(inputValue)) {
-        return false;
-      }
-      throw new Error(`
-      JEST: TypeError: Input does not meet YAML 1.2 "Core Schema" specification: ${name}
-      Support boolean input list: true | True | TRUE | false | False | FALSE
-    `);
-    });
+    jest.spyOn(ghac.logger, 'error').mockImplementation(console.log);
+    jest.spyOn(ghac.logger, 'warning').mockImplementation(console.log);
+    jest.spyOn(ghac.logger, 'info').mockImplementation(console.log);
+    jest.spyOn(ghac.logger, 'debug').mockImplementation(console.log);
+    jest.spyOn(ghac.logger, 'notice').mockImplementation(console.log);
+
     // Mock github context
-    jest.spyOn(github.context, 'repo', 'get').mockImplementation(() => {
+    jest.spyOn(ghac.context, 'repo', 'get').mockImplementation(() => {
       return {
         owner,
         repo,
       };
     });
 
-    github.context.ref = `refs/heads/${issueKey}`;
-    github.context.sha = '1234567890123456789012345678901234567890';
+    ghac.context.ref = `refs/heads/${issueKey}`;
+    ghac.context.sha = '1234567890123456789012345678901234567890';
 
     // Mock ./fs-helper directoryExistsSync()
     jest.spyOn(fsHelper, 'directoryExistsSync').mockImplementation((fspath) => fspath === gitHubWorkspace);
@@ -69,8 +69,8 @@ describe('validate that jira variables exist', () => {
     }
 
     // Restore @actions/github context
-    github.context.ref = originalContext.ref;
-    github.context.sha = originalContext.sha;
+    ghac.context.ref = originalContext.ref;
+    ghac.context.sha = originalContext.sha;
 
     // Restore
     jest.restoreAllMocks();

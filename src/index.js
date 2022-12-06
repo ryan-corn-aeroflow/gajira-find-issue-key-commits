@@ -1,11 +1,14 @@
-import * as core from '@actions/core';
-import * as github from '@actions/github';
 import _ from 'lodash';
 import * as YAML from 'yaml';
-
+import {
+  context,
+  getBooleanInput,
+  getStringInput,
+  logger,
+  setFailed,
+} from '@broadshield/github-actions-core-typed-inputs';
 import Action from './action';
 import * as fsHelper from './lib/fs-helper';
-import { undefinedOnEmpty } from './utils';
 
 const cliConfigPath = `${process.env.HOME}/.jira.d/config.yml`;
 const configPath = `${process.env.HOME}/jira/config.yml`;
@@ -15,9 +18,9 @@ export async function writeKey(result) {
     return;
   }
   const issue = result[0];
-  core.debug(`Detected issueKey: ${issue.key}`);
-  core.debug(`Saving ${issue.key} to ${cliConfigPath}`);
-  core.debug(`Saving ${issue.key} to ${configPath}`);
+  logger.debug(`Detected issueKey: ${issue.key}`);
+  logger.debug(`Saving ${issue.key} to ${cliConfigPath}`);
+  logger.debug(`Saving ${issue.key} to ${configPath}`);
 
   fsHelper.mkdir(configPath);
   fsHelper.mkdir(cliConfigPath);
@@ -33,20 +36,19 @@ export async function writeKey(result) {
       fsHelper.appendFileSync(cliConfigPath, yamledResult);
     }
   } catch (error) {
-    core.debug(error);
+    logger.debug(error);
   }
 }
 
 export const exec = async () => {
   try {
-    const { context } = github;
     let configFromFile = {};
     try {
       if (fsHelper.existsSync(configPath)) {
         configFromFile = YAML.parse(fsHelper.loadFileSync(configPath));
       }
     } catch (error) {
-      core.debug(`Error finding/parsing config file: ${error}, moving on`);
+      logger.debug(`Error finding/parsing config file: ${error}, moving on`);
     }
 
     const argv = parseArguments(configFromFile);
@@ -63,7 +65,7 @@ export const exec = async () => {
     }).execute();
     await writeKey(result);
   } catch (error) {
-    core.setFailed(error);
+    setFailed(error);
   }
 };
 
@@ -80,42 +82,44 @@ export function parseArguments(providedJiraConfig) {
     token: '',
     email: '',
   };
-  jiraConfig.baseUrl = process.env.JIRA_BASE_URL ?? providedJiraConfig?.baseUrl ?? core.getInput('jira_base_url');
-  if (!undefinedOnEmpty(jiraConfig.baseUrl)) {
+  jiraConfig.baseUrl = process.env.JIRA_BASE_URL ?? providedJiraConfig?.baseUrl ?? getStringInput('jira_base_url');
+  if (!jiraConfig.baseUrl) {
     throw new Error('JIRA_BASE_URL env not defined, or supplied as action input jira_base_url');
   }
-  jiraConfig.token = process.env.JIRA_API_TOKEN ?? providedJiraConfig?.token ?? core.getInput('jira_api_token');
-  if (!undefinedOnEmpty(jiraConfig.token)) {
+  jiraConfig.token = process.env.JIRA_API_TOKEN ?? providedJiraConfig?.token ?? getStringInput('jira_api_token');
+  if (!jiraConfig.token) {
     throw new Error('JIRA_API_TOKEN env not defined, or supplied as action input jira_api_token');
   }
-  jiraConfig.email = process.env.JIRA_USER_EMAIL ?? providedJiraConfig?.email ?? core.getInput('jira_user_email');
-  if (!undefinedOnEmpty(jiraConfig.email)) {
+  jiraConfig.email = process.env.JIRA_USER_EMAIL ?? providedJiraConfig?.email ?? getStringInput('jira_user_email');
+  if (!jiraConfig.email) {
     throw new Error('JIRA_USER_EMAIL env not defined, or supplied as action input jira_user_email');
   }
 
   return {
-    string: undefinedOnEmpty(core.getInput('string')),
-    from: _.includes(fromList, core.getInput('from')) ? core.getInput('from') : 'commits',
-    headRef: undefinedOnEmpty(core.getInput('head-ref')),
-    baseRef: undefinedOnEmpty(core.getInput('base-ref')),
-    includeMergeMessages: core.getBooleanInput('include-merge-messages'),
-    GitHubIssues: core.getBooleanInput('generate-github-issues'),
-    GitHubMilestones: core.getBooleanInput('generate-github-milestones'),
-    returns: undefinedOnEmpty(core.getInput('returns')) ?? 'first',
-    updatePRTitle: core.getBooleanInput('standardize-pr-title'),
-    transitionChain: undefinedOnEmpty(core.getInput('jira-transition-chain')),
-    transitionOnNewBranch: core.getInput('jira-transition-on-new-branch'),
-    transitionOnPrOpen: core.getInput('jira-transition-on-pr-open'),
-    transitionOnPrApproval: core.getInput('jira-transition-on-pr-approval'),
-    transitionOnPrMerge: core.getInput('jira-transition-on-pr-merge'),
-    gist_private: core.getBooleanInput('gist-private'),
-    gist_name: core.getInput('create-gist-output-named'),
-    jiraTransition: core.getInput('jira-transition'),
+    string: getStringInput('string'),
+    from: _.includes(fromList, getStringInput('from')) ? getStringInput('from') : 'commits',
+    headRef: getStringInput('head-ref'),
+    baseRef: getStringInput('base-ref'),
+    includeMergeMessages: getBooleanInput('include-merge-messages'),
+    GitHubIssues: getBooleanInput('generate-github-issues'),
+    GitHubMilestones: getBooleanInput('generate-github-milestones'),
+    returns: getStringInput('returns', 'first'),
+    updatePRTitle: getBooleanInput('standardize-pr-title'),
+    transitionChain: getStringInput('jira-transition-chain'),
+    transitionOnNewBranch: getStringInput('jira-transition-on-new-branch'),
+    transitionOnPrOpen: getStringInput('jira-transition-on-pr-open'),
+    transitionOnPrApproval: getStringInput('jira-transition-on-pr-approval'),
+    transitionOnPrMerge: getStringInput('jira-transition-on-pr-merge'),
+    gist_private: getBooleanInput('gist-private'),
+    gist_name: getStringInput('create-gist-output-named'),
+    jiraTransition: getStringInput('jira-transition'),
 
-    fixVersions: [concatStringList(core.getInput('fix-versions'), core.getInput('fix-version'))],
-    replaceFixVersions: core.getBooleanInput('replace-fix-versions'),
+    fixVersions: [concatStringList(getStringInput('fix-versions'), getStringInput('fix-version'))],
+    replaceFixVersions: getBooleanInput('replace-fix-versions'),
     jiraConfig,
   };
 }
 
-exec();
+exec().catch((error) => {
+  setFailed(error);
+});

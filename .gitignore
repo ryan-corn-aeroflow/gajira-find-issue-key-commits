@@ -8,6 +8,7 @@ lerna-debug.log*
 node_modules
 # IDE
 ./test-results
+/tmp/
 
 # IDE
 !.vscode
