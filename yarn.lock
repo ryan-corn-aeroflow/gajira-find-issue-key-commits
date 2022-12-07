@@ -1818,9 +1818,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@broadshield/github-actions-core-typed-inputs@npm:1.2.2":
-  version: 1.2.2
-  resolution: "@broadshield/github-actions-core-typed-inputs@npm:1.2.2"
+"@broadshield/github-actions-core-typed-inputs@npm:1.3.0":
+  version: 1.3.0
+  resolution: "@broadshield/github-actions-core-typed-inputs@npm:1.3.0"
   dependencies:
     "@actions/core": 1.10.0
     "@actions/github": 5.1.1
@@ -1828,7 +1828,7 @@ __metadata:
     "@octokit/request": 6.2.2
     "@octokit/types": 8.0.0
     tslib: 2.4.1
-  checksum: 66c47d7cfa3145606ec1160858ebc7528e2532bfa102f1a49827046d42cfa81079e49bfd6902fe6c60ff47a3fc92528ba5b2ee04aa3636600e1d645fc043c3ca
+  checksum: 2f6d8beaecd691308c983038767c026c218d3075af6e238c42a4a48475519fad7facd526500693c84c91bfe24bb65418d9b863f13e665e0816e5ad52b88471ba
   languageName: node
   linkType: hard
 
@@ -6964,7 +6964,7 @@ __metadata:
     "@babel/node": ^7.20.5
     "@babel/plugin-proposal-decorators": ^7.20.5
     "@babel/preset-env": ^7.20.2
-    "@broadshield/github-actions-core-typed-inputs": 1.2.2
+    "@broadshield/github-actions-core-typed-inputs": 1.3.0
     "@broadshield/github-actions-octokit-hydrated": 1.4.0
     "@octokit/graphql": ^5.0.4
     "@octokit/graphql-schema": ^12.35.0
