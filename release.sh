@@ -18,8 +18,8 @@ git commit -m "chore(release): bump version to ${newtag}" --no-verify
 
 stub_major="${newtag%%\.*}"
 stub_major_minor="${newtag%\.*}"
-git tag -d "${stub_major}" 2> /dev/null || true
-git tag -d "${stub_major_minor}" 2> /dev/null || true
+git tag -d "${stub_major}" 2>/dev/null || true
+git tag -d "${stub_major_minor}" 2>/dev/null || true
 git tag -a "${stub_major}" -m "Release ${newtag}"
 git tag -a "${stub_major_minor}" -m "Release ${newtag}"
 # git push origin ":${stub_major}" 2> /dev/null || true

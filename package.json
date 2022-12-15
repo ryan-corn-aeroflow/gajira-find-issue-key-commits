@@ -9,18 +9,7 @@
     "url": "git+https://github.com/Broadshield/gajira-find-issue-key.git",
     "directory": "."
   },
-  "keywords": [
-    "actions",
-    "github",
-    "jira",
-    "node16",
-    "tickets",
-    "jira server",
-    "github enterprise",
-    "sprint",
-    "milestone",
-    "workflow"
-  ],
+  "keywords": ["actions", "github", "jira", "node16", "tickets", "jira server", "github enterprise", "sprint", "milestone", "workflow"],
   "engines": {
     "node": ">=16.10.0"
   },
@@ -34,7 +23,7 @@
     "test": "NODE_ENV=testing yarn exec jest",
     "prepare": "[ -n ${GITHUB_ACTIONS:-} ] || husky install",
     "build": "rimraf lib && node .github/scripts/esbuild.cjs",
-    "build:inline": "rimraf lib && esbuild src/index.js --bundle --outdir=lib/ --platform=node --target=node16.10 --sourcemap --format=cjs",
+    "build:inline": "rimraf lib && esbuild src/index.js --bundle --outdir=lib/ --platform=node --target=node16.10 --sourcemap --format=cjs; git add lib",
     "test:act": "act -v",
     "prelint": "pretty-quick",
     "format": "prettier --write . --config .prettierrc.cjs --ignore-unknown",

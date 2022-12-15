@@ -1,6 +1,5 @@
 dist/
-lib/
-!src/lib
+./lib/
 *node_modules/
 dist*/
 .*rc
