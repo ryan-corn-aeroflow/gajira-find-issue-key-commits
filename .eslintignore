@@ -1,9 +1,8 @@
 ./lib/
+!./src/lib
 node_modules/
 jest.config.ts
 dist/
 src/@types
 src/*.d.ts
 action.yml
-.eslintrc.cjs
-.prettierrc.cjs

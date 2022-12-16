@@ -175,16 +175,17 @@ export default class Action {
 
       const issueKeys = this.issueKeys(jiraIssuesList);
 
-      if (issueKeys.length > 0) {
+      if (issueKeys && issueKeys.length > 0) {
         try {
-          const re = /\[?(?<issues>(?:\w{2,8}[ _-]\d{3,5}(?:[ ,]+)?)+)[ :\]_-]+(?<title>.*)?/;
+          const re = /(?:(?:[ ,:[\]_|-]|^)*\w{2,8}[ _-]\d{3,5}(?:[ ,:[\]_|-]+|$))*(?<title>.*)$/;
 
           const { groups } = newTitle.match(re) || {};
           if (groups) {
             logger.info(`The title match found: ${YAML.stringify(groups)}`);
-
-            newTitle = `${issueKeys.join(', ')}: ${upperCaseFirst(_.trim(groups.title))}`.slice(0, 71);
-            setOutput('title', `${upperCaseFirst(_.trim(groups.titles))}`);
+            const titleString = upperCaseFirst(_.trim(groups.title));
+            newTitle = `${_.join(issueKeys, ',')}: ${titleString}`.slice(0, 71);
+            logger.debug(`Revised PR Title: ${newTitle}`);
+            setOutput('title', `${titleString}`);
           }
         } catch (error) {
           logger.warning(error);
@@ -226,7 +227,7 @@ export default class Action {
 
       logger.debug(`Checking for ${issueKey} in list of issues`);
 
-      if (_.isArrayLike(data) && data.length > 0) {
+      if (data && _.isArrayLike(data) && data.length > 0) {
         for (const element of data) {
           if (!element.pull_request && _.isString(element.title) && _.includes(element.title, issueKey)) {
             issueNumbers.push(element.number);
@@ -236,7 +237,7 @@ export default class Action {
     }
     const issuePromises = [];
 
-    if (issueNumbers.length > 0) {
+    if (issueNumbers && issueNumbers.length > 0) {
       for (const issueNumber of issueNumbers) {
         logger.debug(`Updating github issue number ${issueNumber} with Jira ${issueKey}`);
         issuePromises.push(
@@ -290,7 +291,7 @@ export default class Action {
     );
     let chainP = Promise.resolve(-1);
 
-    if (jiraIssue.fixVersions?.length === 1) {
+    if (_.isArrayLike(jiraIssue.fixVersions) && jiraIssue.fixVersions?.length === 1) {
       chainP = chainP.then(() =>
         this.createOrUpdateMilestone(
           this.fixVersions[0],
@@ -539,7 +540,7 @@ export default class Action {
     /** its always an array of 0 or 1 item */
     const issues = await Promise.all(issuesPromises).then((results) =>
       _.map(
-        _.filter(results, (f) => f.length > 0),
+        _.filter(results, (f) => f && f.length > 0),
         (r) => r[0],
       ),
     );
@@ -575,64 +576,64 @@ export default class Action {
   }
 
   async transitionIssues(jiraIssuesList) {
-    logger.debug(this.style.bold.green(`TransitionIssues: Number of keys ${jiraIssuesList.length}`));
+    logger.debug(this.style.bold.green(`TransitionIssues: Number of keys ${jiraIssuesList?.length}`));
     const transitionOptionsProm = [];
 
     const issueIds = [];
-
-    for (const a of jiraIssuesList) {
-      const issueId = a?.key;
-      logger.debug(this.style.bold.green(`TransitionIssues: Checking transition for ${issueId}`));
-      if (this.jiraTransition && this.transitionChain) {
-        transitionOptionsProm.push(
-          this.getIssueTransitions(issueId)
-            .then((transObject) => {
-              const { transitions } = transObject;
-              logger.info(
-                this.style.bold.green(
-                  `TransitionIssues: Transitions available for ${issueId}:\n${this.style.bold.greenBright(
-                    YAML.stringify(transitions),
-                  )}`,
-                ),
-              );
-              if (!transitions) {
-                throw new Error('No transitions available');
-              }
-              return transitions;
-            })
-            .then((transitions) => {
-              const indexJT = this.transitionChain.indexOf(this.jiraTransition);
-              const transitionProm = [];
-              for (let index = 0; index < indexJT; index++) {
-                const link = this.transitionChain[index];
-
-                const transitionToApply = _.find(
-                  transitions,
-                  (t) => t.id === link || _.toLower(t.name) === _.toLower(link),
+    if (_.isArray(jiraIssuesList) && jiraIssuesList?.length > 0) {
+      for (const a of jiraIssuesList) {
+        const issueId = a?.key;
+        logger.debug(this.style.bold.green(`TransitionIssues: Checking transition for ${issueId}`));
+        if (this.jiraTransition && this.transitionChain) {
+          transitionOptionsProm.push(
+            this.getIssueTransitions(issueId)
+              .then((transObject) => {
+                const { transitions } = transObject;
+                logger.info(
+                  this.style.bold.green(
+                    `TransitionIssues: Transitions available for ${issueId}:\n${this.style.bold.greenBright(
+                      YAML.stringify(transitions),
+                    )}`,
+                  ),
                 );
-
-                issueIds.push(issueId);
-                if (transitionToApply) {
-                  const transitionId = transitionToApply.id;
-                  logger.info(
-                    this.style.bold.green(
-                      `Applying transition:\n${this.style.bold.greenBright(YAML.stringify(transitionToApply))}`,
-                    ),
-                  );
-                  const tI = this.transitionIssue(issueId, {
-                    transition: {
-                      id: transitionId,
-                    },
-                  });
-                  transitionProm.push(tI);
+                if (!transitions) {
+                  throw new Error('No transitions available');
                 }
-              }
-              return Promise.allSettled(transitionProm);
-            }),
-        );
+                return transitions;
+              })
+              .then((transitions) => {
+                const indexJT = this.transitionChain.indexOf(this.jiraTransition);
+                const transitionProm = [];
+                for (let index = 0; index < indexJT; index++) {
+                  const link = this.transitionChain[index];
+
+                  const transitionToApply = _.find(
+                    transitions,
+                    (t) => t.id === link || _.toLower(t.name) === _.toLower(link),
+                  );
+
+                  issueIds.push(issueId);
+                  if (transitionToApply) {
+                    const transitionId = transitionToApply.id;
+                    logger.info(
+                      this.style.bold.green(
+                        `Applying transition:\n${this.style.bold.greenBright(YAML.stringify(transitionToApply))}`,
+                      ),
+                    );
+                    const tI = this.transitionIssue(issueId, {
+                      transition: {
+                        id: transitionId,
+                      },
+                    });
+                    transitionProm.push(tI);
+                  }
+                }
+                return Promise.allSettled(transitionProm);
+              }),
+          );
+        }
       }
     }
-
     await Promise.all(transitionOptionsProm);
     const issuesProm = [];
     for (const issueId of issueIds) {
@@ -650,7 +651,7 @@ export default class Action {
   }
 
   async formattedIssueList(jiraIssuesList) {
-    if (jiraIssuesList.length > 0) {
+    if (jiraIssuesList && jiraIssuesList.length > 0) {
       return _.map(
         jiraIssuesList,
         (a) =>
@@ -711,14 +712,14 @@ export default class Action {
         /** its always an array of 0 or 1 item */
         issues = await Promise.all(issuesPromises).then((results) =>
           _.map(
-            _.filter(results, (f) => f.length > 0),
+            _.filter(results, (f) => f && f.length > 0),
             (r) => r[0],
           ),
         );
       } else {
         logger.info(`String "${searchString}" does not contain issueKeys`);
       }
-      if (issues.length > 0) {
+      if (issues && issues.length > 0) {
         let plural = 's';
         if (issues.length === 1) {
           plural = '';

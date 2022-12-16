@@ -99,7 +99,7 @@ export const eventTemplates = {
 };
 
 export function assignJiraTransition(_context, _argv) {
-  if (_context.eventName === 'pull_request') {
+  if (_.startsWith(_context.eventName, 'pull_request')) {
     if (_context.payload.action in ['closed'] && _context.payload.pull_request.merged === 'true') {
       return _argv.transitionOnPrMerge;
     }
@@ -125,7 +125,7 @@ export function assignReferences(_githubEvent, _context, _argv) {
     headReference = _githubEvent.ref || undefined;
     baseReference = undefined;
   }
-  if (_context.eventName === 'pull_request') {
+  if (_.startsWith(_context.eventName, 'pull_request')) {
     headReference = headReference || _context.payload?.pull_request?.head?.ref || undefined;
     baseReference = baseReference || _context.payload?.pull_request?.base?.ref || undefined;
   } else if (_context.eventName === 'push') {
