@@ -103,7 +103,7 @@ export default class Action {
       // YYYY-MM-DDTHH:MM:SSZ | ISO 8601
       duedateData.due_on = issueMilestoneDueDate;
     }
-    if (!_.isUndefined(foundMilestones) && foundMilestones.length > 0) {
+    if (foundMilestones && foundMilestones.length > 0) {
       try {
         const foundMilestone = foundMilestones[0];
         octokit.rest.issues.updateMilestone({
@@ -290,7 +290,7 @@ export default class Action {
     );
     let chainP = Promise.resolve(-1);
 
-    if (jiraIssue.fixVersions.length === 1) {
+    if (jiraIssue.fixVersions?.length === 1) {
       chainP = chainP.then(() =>
         this.createOrUpdateMilestone(
           this.fixVersions[0],
