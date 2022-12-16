@@ -1,6 +1,6 @@
 {
   "name": "gajira-find-issue-key",
-  "version": "2.4.4",
+  "version": "2.4.5",
   "description": "",
   "main": "lib/index.mjs",
   "type": "module",
@@ -9,7 +9,18 @@
     "url": "git+https://github.com/Broadshield/gajira-find-issue-key.git",
     "directory": "."
   },
-  "keywords": ["actions", "github", "jira", "node16", "tickets", "jira server", "github enterprise", "sprint", "milestone", "workflow"],
+  "keywords": [
+    "actions",
+    "github",
+    "jira",
+    "node16",
+    "tickets",
+    "jira server",
+    "github enterprise",
+    "sprint",
+    "milestone",
+    "workflow"
+  ],
   "engines": {
     "node": ">=16.10.0"
   },
