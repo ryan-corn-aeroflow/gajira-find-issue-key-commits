@@ -5,6 +5,7 @@ import { cwd } from 'node:process';
 import { parseArguments } from '../src';
 import Action from '../src/action';
 import * as fsHelper from '../src/lib/fs-helper';
+// import { octokit } from '../src/utils';
 import { githubEvent, loadEnvironment } from './config/constants';
 
 const tmpFolder = path.join(cwd(), 'tmp');
@@ -100,6 +101,18 @@ describe('validate that jira variables exist', () => {
     expect(argv.string).toContain(issueKey);
     const index = new Action({ context: githubEvent, argv, config: argv.jiraConfig });
     const result = await index.getIssue(issueKey);
+    expect(result[0].key).toBe(issueKey);
+  });
+  it('Updates PR title and body', async () => {
+    expect.hasAssertions();
+    const argv = parseArguments({});
+    expect(argv.string).toContain(issueKey);
+    const index = new Action({ context: githubEvent, argv, config: argv.jiraConfig });
+    // jest.spyOn(octokit, 'rest.pulls.update').mockImplementation((data) => {
+    //   console.log(data);
+    // });
+    const result = await index.getIssue(issueKey);
+
     expect(result[0].key).toBe(issueKey);
   });
 });

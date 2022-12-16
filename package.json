@@ -9,18 +9,7 @@
     "url": "git+https://github.com/Broadshield/gajira-find-issue-key.git",
     "directory": "."
   },
-  "keywords": [
-    "actions",
-    "github",
-    "jira",
-    "node16",
-    "tickets",
-    "jira server",
-    "github enterprise",
-    "sprint",
-    "milestone",
-    "workflow"
-  ],
+  "keywords": ["actions", "github", "jira", "node16", "tickets", "jira server", "github enterprise", "sprint", "milestone", "workflow"],
   "engines": {
     "node": ">=16.10.0"
   },
