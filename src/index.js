@@ -12,7 +12,24 @@ import * as fsHelper from './lib/fs-helper';
 
 const cliConfigPath = `${process.env.HOME}/.jira.d/config.yml`;
 const configPath = `${process.env.HOME}/jira/config.yml`;
-
+/**
+ * @typedef {Object} JiraIssueObject
+ * @property {string} key
+ * @property {string} description=''
+ * @property {string} projectKey=
+ * @property {string} projectName=
+ * @property {string[]} fixVersions=[]
+ * @property {string|undefined} priority=
+ * @property {string|undefined} status=
+ * @property {string} summary=
+ * @property {string|undefined} dueDate=
+ * @property {number|undefined} ghNumber=
+ */
+/**
+ * Write the issue key to the config file
+ * @param {Array<JiraIssueObject>} result
+ * @returns {Promise<void>}
+ */
 export async function writeKey(result) {
   if (result.length === 0) {
     return;
@@ -40,6 +57,9 @@ export async function writeKey(result) {
   }
 }
 
+/**
+ * @returns {Promise<void>}
+ */
 export const exec = async () => {
   try {
     let configFromFile = {};

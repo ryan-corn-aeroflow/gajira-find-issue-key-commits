@@ -2,9 +2,25 @@ import ansiColors from 'ansi-colors';
 import { highlight } from 'cli-highlight';
 import { Version2Client } from 'jira.js';
 import _ from 'lodash';
+import filter from 'lodash/filter';
+import find from 'lodash/find';
 import get from 'lodash/get';
+import includes from 'lodash/includes';
+import isArray from 'lodash/isArray';
+import isArrayLike from 'lodash/isArrayLike';
+import isSet from 'lodash/isSet';
+import isString from 'lodash/isString';
+import join from 'lodash/join';
+import map from 'lodash/map';
+import replace from 'lodash/replace';
+import split from 'lodash/split';
+import startsWith from 'lodash/startsWith';
 import template from 'lodash/template';
 import templateSettings from 'lodash/templateSettings';
+import toLower from 'lodash/toLower';
+import toUpper from 'lodash/toUpper';
+import trim from 'lodash/trim';
+import uniq from 'lodash/uniq';
 import * as YAML from 'yaml';
 import { core, logger, setOutput } from '@broadshield/github-actions-core-typed-inputs';
 import JiraMarkupToMarkdown from './lib/jira-markup-to-markdown';
@@ -18,10 +34,36 @@ import {
   listCommitMessagesInPullRequest,
   octokit,
   startJiraToken,
-  upperCaseFirst,
+  strictIssueIdRegEx,
+  normaliseKey,
+  titleCasePipe,
 } from './utils';
 
 export default class Action {
+  /**
+   * @param {JiraIssueObject[]} jiraIssuesList
+   * @return {string[]}
+   */
+  static issueKeys(jiraIssuesList) {
+    if (isArrayLike(jiraIssuesList)) {
+      return uniq(map(jiraIssuesList, 'key'));
+    }
+    return [];
+  }
+
+  static updateStringByToken(startToken, endToken, fullText, insertText) {
+    const regex = new RegExp(
+      `(?<start>\\[\\/]: \\/ "${startToken}"\\n)(?<text>(?:.|\\s)+)(?<end>\\n\\[\\/]: \\/ "${endToken}"(?:\\s)?)`,
+      'gm',
+    );
+
+    if (regex.test(fullText)) {
+      return replace(fullText, regex, `$1${insertText}$3`);
+    }
+
+    return `${trim(fullText)}\n\n[/]: / "${startToken}"\n${insertText}\n[/]: / "${endToken}"`;
+  }
+
   constructor({ context, argv, config }) {
     this.style = ansiColors.create();
     this.baseUrl = config.baseUrl;
@@ -62,7 +104,7 @@ export default class Action {
     this.createGist = false;
     this.gist_private = config.gist_private;
     this.fixVersions = argv.fixVersions;
-    this.transitionChain = _.split(argv.transitionChain, ',') || [];
+    this.transitionChain = split(argv.transitionChain ?? '', ',');
     this.jiraTransition = assignJiraTransition(context, argv);
     const references = assignReferences(context, context, argv);
     this.headRef = references.headRef;
@@ -82,7 +124,7 @@ export default class Action {
       state: 'all',
     });
     if (milestones?.data) {
-      const milestone = _.filter(milestones.data, ['title', issueMilestone]);
+      const milestone = filter(milestones.data, ['title', issueMilestone]);
       if (milestone) {
         return milestone;
       }
@@ -141,26 +183,13 @@ export default class Action {
     }
   }
 
-  async updateStringByToken(startToken, endToken, fullText, insertText) {
-    const regex = new RegExp(
-      `(?<start>\\[\\/]: \\/ "${startToken}"\\n)(?<text>(?:.|\\s)+)(?<end>\\n\\[\\/]: \\/ "${endToken}"(?:\\s)?)`,
-      'gm',
-    );
-
-    if (regex.test(fullText)) {
-      return _.replace(fullText, regex, `$1${insertText}$3`);
-    }
-
-    return `${_.trim(fullText)}\n\n[/]: / "${startToken}"\n${insertText}\n[/]: / "${endToken}"`;
-  }
-
   async updatePullRequestBody(jiraIssuesList, startToken, endToken) {
     if (!this.context.payload.pull_request) {
       logger.info(`Skipping pull request update, pull_request not found in current github context, or received event`);
 
       return;
     }
-    const issues = await this.formattedIssueList();
+    const issues = this.formattedIssueList(jiraIssuesList);
     const text = `### Linked Jira Issues:\n\n${issues}\n`;
 
     const { number, body, title } = this.context.payload.pull_request;
@@ -168,22 +197,23 @@ export default class Action {
     logger.debug(`Updating PR number ${number}`);
     logger.debug(`With text:\n ${text}`);
 
-    let newTitle = _.trim(title);
+    let newTitle = trim(title);
 
     if (this.updatePRTitle) {
       logger.debug(`Current PR Title: ${title}`);
 
-      const issueKeys = this.issueKeys(jiraIssuesList);
+      const issueKeys = [...Action.issueKeys(jiraIssuesList)];
 
-      if (issueKeys && issueKeys.length > 0) {
+      if (issueKeys.length > 0) {
         try {
-          const re = /(?:(?:[ ,:[\]_|-]|^)*\w{2,8}[ _-]\d{3,5}(?:[ ,:[\]_|-]+|$))*(?<title>.*)$/;
+          const re =
+            /(?:^|[ [])*(?<=^|[a-z]-|[\s&P[\]^cnptu{}\-])([A-Za-z]\w*[ \-]\d+)(?![^\W_])[ ,:[\]|\-]*(?<title>.*)$/;
 
           const { groups } = newTitle.match(re) || {};
           if (groups) {
             logger.info(`The title match found: ${YAML.stringify(groups)}`);
-            const titleString = upperCaseFirst(_.trim(groups.title));
-            newTitle = `${_.join(issueKeys, ',')}: ${titleString}`.slice(0, 71);
+            const titleString = titleCasePipe(replace(trim(groups.title), /\s+/g, ' '));
+            newTitle = `${join(issueKeys, ',')}: ${titleString}`.slice(0, 71);
             logger.debug(`Revised PR Title: ${newTitle}`);
             setOutput('title', `${titleString}`);
           }
@@ -193,7 +223,7 @@ export default class Action {
       }
     }
     if (issues) {
-      const bodyUpdate = await this.updateStringByToken(startToken, endToken, body, text);
+      const bodyUpdate = Action.updateStringByToken(startToken, endToken, body, text);
 
       await octokit.rest.pulls.update({
         ...this.context.repo,
@@ -210,9 +240,9 @@ export default class Action {
     const issueNumbers = [];
     /** @type string[] */
     const assignees = [];
-    if (_.isArray(issueAssignee)) {
+    if (isArray(issueAssignee)) {
       assignees.push(...issueAssignee);
-    } else if (_.isString(issueAssignee)) {
+    } else if (isString(issueAssignee)) {
       assignees.push(issueAssignee);
     }
 
@@ -227,9 +257,9 @@ export default class Action {
 
       logger.debug(`Checking for ${issueKey} in list of issues`);
 
-      if (data && _.isArrayLike(data) && data.length > 0) {
+      if (data && isArrayLike(data) && data.length > 0) {
         for (const element of data) {
-          if (!element.pull_request && _.isString(element.title) && _.includes(element.title, issueKey)) {
+          if (!element.pull_request && isString(element.title) && includes(element.title, issueKey)) {
             issueNumbers.push(element.number);
           }
         }
@@ -291,7 +321,7 @@ export default class Action {
     );
     let chainP = Promise.resolve(-1);
 
-    if (_.isArrayLike(jiraIssue.fixVersions) && jiraIssue.fixVersions?.length === 1) {
+    if (isArrayLike(jiraIssue.fixVersions) && jiraIssue.fixVersions?.length === 1) {
       chainP = chainP.then(() =>
         this.createOrUpdateMilestone(
           this.fixVersions[0],
@@ -307,6 +337,10 @@ export default class Action {
     );
   }
 
+  /**
+   * @param {{headRef: string, baseRef: string}} range
+   * @returns {Promise<{startDate: string, endDate: string}>}
+   * */
   async getStartAndEndDates(range) {
     const { repository } = await graphqlWithAuth(GetStartAndEndPoints, {
       ...this.context.repo,
@@ -319,9 +353,17 @@ export default class Action {
     return { startDate, endDate };
   }
 
-  /** @return {Promise<JiraIssueObject[]>} */
+  /**
+   * @typedef {Object} JiraIssueQuery
+   * @property {string[]|undefined=} fields
+   * @property {string[]|undefined=} expand
+   */
+  /**
+   * @param {string} issueId
+   * @param {JiraIssueQuery|undefined=} query
+   * @return {Promise<JiraIssueObject[]>} */
   async getIssue(issueId, query) {
-    if (!_.isString(issueId)) {
+    if (!isString(issueId)) {
       logger.error(`Issue ID must be a string, was: ${typeof issueId}, ${YAML.stringify(issueId)}`);
       return [];
     }
@@ -365,7 +407,7 @@ export default class Action {
         description: JiraMarkupToMarkdown.toM(jiraIssue.fields?.description ?? ''),
         projectKey: jiraIssue?.fields?.project?.key,
         projectName: jiraIssue?.fields?.project?.name,
-        fixVersions: _.map(jiraIssue?.fields?.fixVersions, 'name'),
+        fixVersions: map(jiraIssue?.fields?.fixVersions, 'name'),
         priority: jiraIssue?.fields.priority?.name,
         status: jiraIssue?.fields.status?.name,
         summary: jiraIssue?.fields?.summary,
@@ -374,11 +416,11 @@ export default class Action {
       };
       if (this.fixVersions) {
         const fixArray =
-          _.toUpper(this.fixVersions) === 'NONE'
+          toUpper(this.fixVersions) === 'NONE'
             ? []
             : _(this.fixVersions)
                 .split(',')
-                .invokeMap((f) => _.trim(f))
+                .invokeMap((f) => trim(f))
                 .value();
         if (this.argv.replaceFixVersions) {
           jiraIssueObject.fixVersions = fixArray;
@@ -394,43 +436,50 @@ export default class Action {
     return;
   }
 
+  /**
+   *
+   * @param {string} string1
+   * @param {Set<string>|undefined=} _set
+   * @returns {Set<string>}
+   */
   getIssueSetFromString(string1, _set) {
-    const set = _.isSet(_set) ? _set : new Set();
-    if (_.isString(string1)) {
-      const match = string1.match(issueIdRegEx);
+    const set = isSet(_set) ? _set : new Set();
+    if (isString(string1)) {
+      const match = string1.match(strictIssueIdRegEx);
 
       if (match) {
         for (const issueKey of match) {
-          set.add(issueKey);
+          set.add(normaliseKey(issueKey));
         }
       }
     }
     return set;
   }
 
+  /**
+   *
+   * @param {Set<string>|string[]|string} stringSet
+   * @returns {string}
+   */
   setToCommaDelimitedString(stringSet) {
     if (stringSet) {
-      if (_.isSet(stringSet)) {
+      if (isSet(stringSet)) {
         return [...stringSet].join(',');
       }
-      if (_.isArray(stringSet)) {
-        return _.join(stringSet, ',');
+      if (isArray(stringSet)) {
+        return join(stringSet, ',');
       }
-      if (_.isString(stringSet)) {
+      if (isString(stringSet)) {
         return stringSet;
       }
     }
     return '';
   }
 
-  issueKeys(jiraIssuesList) {
-    if (_.isArray(jiraIssuesList)) {
-      return _.map(jiraIssuesList, 'key');
-    }
-    return [];
-  }
-
-  /** @return {import('@octokit/graphql/dist-types/types').GraphQlResponse<any>} */
+  /**
+   * @param {number|undefined=} after
+   * @return {import('@octokit/graphql/dist-types/types').GraphQlResponse<any>}
+   * */
   async getRepositoriesNodes(after) {
     return graphqlWithAuth(listCommitMessagesInPullRequest, {
       owner: this.context.repo.owner,
@@ -484,7 +533,7 @@ export default class Action {
     }
 
     const titleSet = this.getIssueSetFromString(this.context?.payload.pull_request?.title);
-    if (_.startsWith(this.context.eventName, 'pull_request')) {
+    if (startsWith(this.context.eventName, 'pull_request')) {
       logger.debug(`Pull request title is: ${this.context.payload?.pull_request?.title}`);
       setOutput('title_issues', this.setToCommaDelimitedString(titleSet));
     }
@@ -505,8 +554,8 @@ export default class Action {
             if (node) {
               const { message } = node.commit;
               let skipCommit = false;
-              if (_.isString(message)) {
-                if (_.startsWith(message, 'Merge branch') || _.startsWith(message, 'Merge pull')) {
+              if (isString(message)) {
+                if (startsWith(message, 'Merge branch') || startsWith(message, 'Merge pull')) {
                   logger.debug('Commit message indicates that it is a merge');
                   if (!this.includeMergeMessages) {
                     skipCommit = true;
@@ -525,6 +574,7 @@ export default class Action {
 
       setOutput('commit_issues', this.setToCommaDelimitedString(commitSet));
     }
+    /** @type string[] */
     const combinedArray = [...new Set([...stringSet, ...titleSet, ...referenceSet, ...commitSet])];
     /** @type {Promise<number[]>[]} */
     const ghResults = [];
@@ -539,8 +589,8 @@ export default class Action {
     }
     /** its always an array of 0 or 1 item */
     const issues = await Promise.all(issuesPromises).then((results) =>
-      _.map(
-        _.filter(results, (f) => f && f.length > 0),
+      map(
+        filter(results, (f) => f && f.length > 0),
         (r) => r[0],
       ),
     );
@@ -561,6 +611,7 @@ export default class Action {
   }
 
   async getIssueTransitions(issueId) {
+    /** @type import('jira.js/out/version2/parameters').GetTransitions */
     const parameters = {
       issueIdOrKey: issueId,
     };
@@ -568,6 +619,7 @@ export default class Action {
   }
 
   async transitionIssue(issueId, data) {
+    /** @type import('jira.js/out/version2/parameters').DoTransition */
     const parameters = {
       issueIdOrKey: issueId,
       transition: data,
@@ -575,12 +627,16 @@ export default class Action {
     return this.client.issues.doTransition(parameters);
   }
 
+  /**
+   *
+   * @param {JiraIssueObject[]} jiraIssuesList
+   */
   async transitionIssues(jiraIssuesList) {
     logger.debug(this.style.bold.green(`TransitionIssues: Number of keys ${jiraIssuesList?.length}`));
     const transitionOptionsProm = [];
 
     const issueIds = [];
-    if (_.isArray(jiraIssuesList) && jiraIssuesList?.length > 0) {
+    if (isArray(jiraIssuesList) && jiraIssuesList?.length > 0) {
       for (const a of jiraIssuesList) {
         const issueId = a?.key;
         logger.debug(this.style.bold.green(`TransitionIssues: Checking transition for ${issueId}`));
@@ -602,14 +658,15 @@ export default class Action {
                 return transitions;
               })
               .then((transitions) => {
-                const indexJT = this.transitionChain.indexOf(this.jiraTransition);
+                const indexJT = this.transitionChain.indexOf(this.jiraTransition ?? '');
+                /** @type Promise<void>[] */
                 const transitionProm = [];
                 for (let index = 0; index < indexJT; index++) {
                   const link = this.transitionChain[index];
 
-                  const transitionToApply = _.find(
+                  const transitionToApply = find(
                     transitions,
-                    (t) => t.id === link || _.toLower(t.name) === _.toLower(link),
+                    (t) => t.id === link || toLower(t.name) === toLower(link),
                   );
 
                   issueIds.push(issueId);
@@ -637,22 +694,30 @@ export default class Action {
     await Promise.all(transitionOptionsProm);
     const issuesProm = [];
     for (const issueId of issueIds) {
-      const issueObject = _.find(jiraIssuesList, (indexO) => indexO?.key === issueId);
-      const w = this.getIssue(issueId).then((transitionedIssue) => {
-        const statusName = get(transitionedIssue, 'fields.status.name');
+      /** @type {JiraIssueObject|undefined} */
+      const issueObject = find(jiraIssuesList, (indexO) => indexO?.key === issueId);
+      if (issueObject) {
+        const w = this.getIssue(issueId).then((transitionedIssue) => {
+          const statusName = get(transitionedIssue, 'fields.status.name');
 
-        logger.info(this.style.bold.green(`Jira ${issueId} status is: ${statusName}.`));
-        logger.info(this.style.bold.green(`Link to issue: ${this.config.baseUrl}/browse/${issueId}`));
-        issueObject.set('status', statusName);
-      });
-      issuesProm.push(w);
+          logger.info(this.style.bold.green(`Jira ${issueId} status is: ${statusName}.`));
+          logger.info(this.style.bold.green(`Link to issue: ${this.config.baseUrl}/browse/${issueId}`));
+          issueObject.status = statusName;
+        });
+        issuesProm.push(w);
+      }
     }
     await Promise.all(issuesProm);
   }
 
-  async formattedIssueList(jiraIssuesList) {
+  /**
+   *
+   * @param {JiraIssueObject[]} jiraIssuesList
+   * @returns {string[]}
+   */
+  formattedIssueList(jiraIssuesList) {
     if (jiraIssuesList && jiraIssuesList.length > 0) {
-      return _.map(
+      return map(
         jiraIssuesList,
         (a) =>
           a &&
@@ -664,9 +729,9 @@ export default class Action {
     return ['No Jira Issues Found'];
   }
 
-  async outputReleaseNotes(jiraIssuesList) {
-    const issues = await this.formattedIssueList(jiraIssuesList);
-    const issuesJoined = _.join(issues, '\n');
+  outputReleaseNotes(jiraIssuesList) {
+    const issues = this.formattedIssueList(jiraIssuesList);
+    const issuesJoined = join(issues, '\n');
     setOutput('notes', `### Release Notes:\n\n${issuesJoined}`);
     setOutput('notes_raw', `${issuesJoined}`);
     core.summary.addHeading(`Release Notes`).addList(issues).write();
@@ -679,19 +744,24 @@ export default class Action {
     }
 
     const jiraIssuesList = await this.getJiraKeysFromGitRange();
+    this.outputReleaseNotes(jiraIssuesList);
     await Promise.all([
       this.transitionIssues(jiraIssuesList),
-      this.outputReleaseNotes(jiraIssuesList),
       this.updatePullRequestBody(jiraIssuesList, startJiraToken, endJiraToken),
     ]);
 
     return jiraIssuesList;
   }
 
+  /**
+   *
+   * @param {string} searchString
+   * @returns {Promise<JiraIssueObject[]>}
+   */
   async findIssueKeyIn(searchString) {
     /** @type {JiraIssueObject[]} */
     let issues = [];
-    if (_.isString(searchString)) {
+    if (isString(searchString)) {
       if (!searchString) {
         logger.info(`no issues found in ${this.argv.from}`);
         return issues;
@@ -711,8 +781,8 @@ export default class Action {
 
         /** its always an array of 0 or 1 item */
         issues = await Promise.all(issuesPromises).then((results) =>
-          _.map(
-            _.filter(results, (f) => f && f.length > 0),
+          map(
+            filter(results, (f) => f && f.length > 0),
             (r) => r[0],
           ),
         );
@@ -731,6 +801,10 @@ export default class Action {
     return issues;
   }
 
+  /**
+   * @param {string} string_
+   * @returns {string|undefined}
+   */
   preprocessString(string_) {
     try {
       templateSettings.interpolate = /{{([\S\s]+?)}}/g;

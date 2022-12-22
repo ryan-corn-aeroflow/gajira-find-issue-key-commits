@@ -147,6 +147,7 @@ module.exports = {
         },
       },
       rules: {
+        'no-useless-escape': 'off',
         'lodash/prop-shorthand': 'off',
         'no-await-in-loop': 'off',
         'editorconfig/indent': 'off',
