@@ -1,4 +1,5 @@
 import _ from 'lodash';
+import isArray from 'lodash/isArray';
 import * as YAML from 'yaml';
 import {
   context,
@@ -89,12 +90,69 @@ export const exec = async () => {
   }
 };
 
-export function concatStringList(providedString1, providedString2) {
-  const stringArray = [..._.split(_.trim(providedString1), ','), ..._.split(_.trim(providedString2), ',')].flatMap(
-    (f) => (f && f.length > 0 ? [f] : []),
+function trimArray(inputArray) {
+  return _.filter(
+    _.map(inputArray, (f) => _.trim(f)),
+    (f) => f !== '',
   );
-  return [...new Set(stringArray)];
 }
+function commaDelimitedToArray(input) {
+  const inputArray = isArray(input) ? input : _.split(input, ',');
+
+  return trimArray(inputArray);
+}
+/**
+ *
+ * @param {string|string[]} providedString1
+ * @param {string|string[]} providedString2
+ * @returns {string[]}
+ */
+export function concatStringList(providedString1, providedString2) {
+  if (!providedString1 && !providedString2) {
+    return [];
+  }
+  return _.uniq([...commaDelimitedToArray(providedString1), ...commaDelimitedToArray(providedString2)]);
+}
+/**
+ * @typedef {object} JiraConfig
+ * @property {string} baseUrl
+ * @property {string} token
+ * @property {string} email
+ */
+/**
+ * @typedef {object} ProvidedJiraConfig
+ * @property {string|undefined=} baseUrl
+ * @property {string|undefined=} token
+ * @property {string|undefined=} email
+ */
+/**
+ * @typedef {object} ArgumentsType
+ * @property {string} string
+ * @property {string} from
+ * @property {string} headRef
+ * @property {string} baseRef
+ * @property {boolean} includeMergeMessages
+ * @property {boolean} GitHubIssues
+ * @property {boolean} GitHubMilestones
+ * @property {string} returns
+ * @property {JiraConfig} jiraConfig
+ * @property {boolean} updatePRTitle
+ * @property {string} transitionChain
+ * @property {string} transitionOnNewBranch
+ * @property {string} transitionOnPrOpen
+ * @property {string} transitionOnPrMerge
+ * @property {string} transitionOnPrApproval
+ * @property {boolean} gist_private
+ * @property {string} gist_name
+ * @property {string} jiraTransition
+ * @property {string[]} fixVersions
+ * @property {boolean} replaceFixVersions
+ */
+/**
+ *
+ * @param {ProvidedJiraConfig} providedJiraConfig
+ * @returns {ArgumentsType}
+ */
 export function parseArguments(providedJiraConfig) {
   const fromList = ['string', 'commits', 'pull_request', 'branch'];
   const jiraConfig = {
@@ -133,8 +191,7 @@ export function parseArguments(providedJiraConfig) {
     gist_private: getBooleanInput('gist-private'),
     gist_name: getStringInput('create-gist-output-named'),
     jiraTransition: getStringInput('jira-transition'),
-
-    fixVersions: [concatStringList(getStringInput('fix-versions'), getStringInput('fix-version'))],
+    fixVersions: concatStringList(getStringInput('fix-versions', ''), getStringInput('fix-version', '')),
     replaceFixVersions: getBooleanInput('replace-fix-versions'),
     jiraConfig,
   };

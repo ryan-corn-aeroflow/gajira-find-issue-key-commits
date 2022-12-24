@@ -2,7 +2,13 @@ import { Version2Client } from 'jira.js';
 import _ from 'lodash';
 import { logger } from '@broadshield/github-actions-core-typed-inputs';
 
-export default class UpdateIssue {
+export class UpdateIssue {
+  /**
+   * @param {object} options
+   * @param {import('@broadshield/github-actions-core-typed-inputs').Context} options.context
+   * @param {import('.').IssueArguments} options.argv
+   * @param {import('.').JiraAuthConfig | import('..').JiraConfig} options.config
+   * */
   constructor({ context, argv, config }) {
     this.client = new Version2Client({
       host: config.baseUrl,
@@ -20,6 +26,9 @@ export default class UpdateIssue {
     this.githubEvent = context;
   }
 
+  /**
+   * @returns {Promise<{issue: string;} | undefined>}
+   */
   async execute() {
     const { argv } = this;
     const { projectKey, issuetypeName, fields, description, summary } = argv;
@@ -41,7 +50,7 @@ export default class UpdateIssue {
         {
           startAt,
           expand: 'issuetypes.fields',
-          keys: [projectKey],
+          keys: projectKey ? [projectKey] : undefined,
           typeKey: issuetypeName,
         },
         callbackF,
@@ -52,7 +61,8 @@ export default class UpdateIssue {
       logger.error(`project '${projectKey}' not found`);
       return;
     }
-    const [project] = projects;
+    /** @type Partial<import('jira.js/out/version2/models').Project> */
+    const project = projects[0];
 
     logger.info(`Project Metadata: ${JSON.stringify(project, undefined, ' ')}`);
 
@@ -61,7 +71,8 @@ export default class UpdateIssue {
       return;
     }
 
-    /** @typedef {object} ProvidedFields
+    /**
+     * @typedef {object} ProvidedFields
      * @property {string} key
      * @property {string} value
      * /
@@ -74,8 +85,8 @@ export default class UpdateIssue {
 
     const payload = {
       fields: {
-        project: projectKey,
-        issuetype: issuetypeName,
+        project,
+        issuetype: { name: issuetypeName },
         summary,
         description,
       },
@@ -89,6 +100,11 @@ export default class UpdateIssue {
     return { issue: issue.key };
   }
 
+  /**
+   *
+   * @param {string} fieldsString
+   * @returns {{key: string;value: any;}[]}
+   */
   transformFields(fieldsString) {
     const fields = JSON.parse(fieldsString);
 
@@ -98,3 +114,5 @@ export default class UpdateIssue {
     }));
   }
 }
+
+export default UpdateIssue;

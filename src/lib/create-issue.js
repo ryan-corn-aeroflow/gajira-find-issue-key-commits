@@ -3,56 +3,10 @@ import _ from 'lodash';
 import { logger } from '@broadshield/github-actions-core-typed-inputs';
 import ActionError from './action-error';
 
-/**
- * @typedef {Object} JiraConfig
- * @property {string} [baseUrl]
- * @property {string} [token]
- * @property {string} [email]
- * @property {string} [transitionId]
- * @property {string} [project]
- * @property {string} [issuetype]
- * @property {string} [summary]
- * @property {string} [description]
- * @property {string} [issue]
- */
-/**
- * @typedef {Object} JiraAuthConfig
- * @property {string} baseUrl
- * @property {string} token
- * @property {string} email
- * @property {string} [string]
- */
-/** @typedef {Object} ArgumentsIndex */
-/**
- * @typedef {Object} Arguments
- * @property {string} token
- * @property {string} string
- * @property {string} [headRef]
- * @property {string} [baseRef]
- * @property {string} projects
- * @property {string} projectsIgnore
- * @property {boolean} includeMergeMessages
- * @property {boolean} ignoreCommits
- * @property {boolean} failOnError
- * @property {JiraAuthConfig} config
- * @property {string} [githubApiBaseUrl]
- * @property {string} enterpriseServerVersion
- */
-/**
- * @typedef {Object} ReferenceRange
- * @property {string} [headRef]
- * @property {string} [baseRef]
- */
-/**
- * @typedef {Object} ProjectFilter
- * @property {string[]} projectsIncluded
- * @property {string[]} projectsExcluded
- */
-
-export default class CreateIssue {
+export class CreateIssue {
   /**
    *
-   * @param {JiraAuthConfig | JiraConfig} config
+   * @param {import('.').JiraAuthConfig | import('..').JiraConfig} config
    * @returns {boolean}
    * @throws {import('./action-error.js').default}
    */
@@ -178,3 +132,5 @@ export default class CreateIssue {
     return { issue: issue?.key ?? '' };
   }
 }
+
+export default CreateIssue;
