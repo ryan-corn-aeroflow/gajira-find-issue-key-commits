@@ -26,5 +26,3 @@ export const argv = {
   description: 'This is a description ref/head/blah',
   fields: '{"customfield_10027":{"value":"API"},"fixVersions":[{"name":"2.16.0 - API"}] }',
 };
-
-export const githubEvent = {};

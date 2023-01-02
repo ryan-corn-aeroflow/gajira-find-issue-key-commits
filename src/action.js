@@ -1,6 +1,5 @@
 import ansiColors from 'ansi-colors';
 import { highlight } from 'cli-highlight';
-import { Version2Client } from 'jira.js';
 import _ from 'lodash';
 import filter from 'lodash/filter';
 import find from 'lodash/find';
@@ -18,12 +17,12 @@ import startsWith from 'lodash/startsWith';
 import template from 'lodash/template';
 import templateSettings from 'lodash/templateSettings';
 import toLower from 'lodash/toLower';
-import toUpper from 'lodash/toUpper';
 import trim from 'lodash/trim';
 import uniq from 'lodash/uniq';
 import * as YAML from 'yaml';
 import { core, logger, setOutput } from '@broadshield/github-actions-core-typed-inputs';
-import JiraMarkupToMarkdown from './lib/jira-markup-to-markdown';
+import { Jira } from './lib/jira';
+import { JiraIssueObject } from './lib/jira-issue-object';
 import {
   GetStartAndEndPoints,
   assignJiraTransition,
@@ -51,6 +50,14 @@ export default class Action {
     return [];
   }
 
+  /**
+   *
+   * @param {string} startToken
+   * @param {string} endToken
+   * @param {string} fullText
+   * @param {string} insertText
+   * @returns {string}
+   */
   static updateStringByToken(startToken, endToken, fullText, insertText) {
     const regex = new RegExp(
       `(?<start>\\[\\/]: \\/ "${startToken}"\\n)(?<text>(?:.|\\s)+)(?<end>\\n\\[\\/]: \\/ "${endToken}"(?:\\s)?)`,
@@ -64,45 +71,63 @@ export default class Action {
     return `${trim(fullText)}\n\n[/]: / "${startToken}"\n${insertText}\n[/]: / "${endToken}"`;
   }
 
+  /**
+   *
+   * @param {Set<string>|string[]|string} stringSet
+   * @returns {string}
+   */
+  static setToCommaDelimitedString(stringSet) {
+    if (stringSet) {
+      if (isSet(stringSet)) {
+        return [...stringSet].join(',');
+      }
+      if (isArray(stringSet)) {
+        return join(stringSet, ',');
+      }
+      if (isString(stringSet)) {
+        return stringSet;
+      }
+    }
+    return '';
+  }
+
+  /**
+   *
+   * @param {object} param0
+   * @param {import('@broadshield/github-actions-core-typed-inputs').Context} param0.context
+   * @param {import('./@types').Args} param0.argv
+   * @param {import('./@types').JiraConfig} param0.config
+   */
   constructor({ context, argv, config }) {
     this.style = ansiColors.create();
     this.baseUrl = config.baseUrl;
     this.token = config.token;
     this.email = config.email;
-    this.client = new Version2Client({
-      host: this.baseUrl,
-      telemetry: false,
-      newErrorHandling: true,
-      authentication: {
-        basic: {
-          email: this.email,
-          apiToken: this.token,
-        },
-      },
-    });
+    this.jira = new Jira(config);
 
-    this.J2M = new JiraMarkupToMarkdown();
-    logger.debug(`Config found: \n${highlight(YAML.stringify(config), { language: 'yml', ignoreIllegals: true })}`);
-    logger.debug(`Args found: \n${highlight(YAML.stringify(argv), { language: 'yml', ignoreIllegals: true })}`);
-    logger.debug(`Getting issues from: ${argv.from}`);
-    if (argv.from === 'string') {
-      logger.debug(`Getting issues from string: ${argv.string}`);
+    const configLog = highlight(JSON.stringify(config), { language: 'json', ignoreIllegals: true });
+    const argvLog = highlight(JSON.stringify(argv), { language: 'json', ignoreIllegals: true });
+    logger.debug(`Config found: \n${configLog}`);
+    logger.debug(`Args found: \n${argvLog}`);
+    if (argv.from) {
+      logger.debug(`Getting issues from: ${argv.from}`);
     }
     this.config = config;
     this.argv = argv;
     this.rawString = this.argv.string ?? config.string;
     /** @type {import('@broadshield/github-actions-core-typed-inputs').Context} */
     this.context = context;
-    this.createIssue = argv.createIssue;
     this.updatePRTitle = argv.updatePRTitle;
     this.includeMergeMessages = argv.includeMergeMessages;
+    /** @type string[] */
     this.commitMessageList = [];
     /** @type JiraIssueObject[] */
-    this.foundKeys = [];
+    this.jiraIssueArray = [];
+    /** @type string[] */
     this.githubIssues = [];
     this.jiraTransition = undefined;
     this.createGist = false;
-    this.gist_private = config.gist_private;
+    this.gist_private = argv.gist_private;
     this.fixVersions = argv.fixVersions;
     this.transitionChain = split(argv.transitionChain ?? '', ',');
     this.jiraTransition = assignJiraTransition(context, argv);
@@ -110,7 +135,7 @@ export default class Action {
     this.headRef = references.headRef;
     this.baseRef = references.baseRef;
 
-    if (config.gist_name) {
+    if (argv.gist_name) {
       this.createGist = true;
     }
   }
@@ -223,7 +248,7 @@ export default class Action {
       }
     }
     if (issues) {
-      const bodyUpdate = Action.updateStringByToken(startToken, endToken, body, text);
+      const bodyUpdate = Action.updateStringByToken(startToken, endToken, body ?? '', text);
 
       await octokit.rest.pulls.update({
         ...this.context.repo,
@@ -300,7 +325,7 @@ export default class Action {
         core.startGroup(`GitHub issue ${issue.data.number} data`);
         logger.debug(`Github Issue: \n${YAML.stringify(issue.data)}`);
         core.endGroup();
-        this.githubIssues.push(issue.data.number);
+        this.githubIssues.push(String(issue.data.number));
         issueNumbersInner.push(issue.data.number);
       }
       return issueNumbersInner;
@@ -315,7 +340,7 @@ export default class Action {
     // Get or set milestone from issue
     // for (let version of jiraIssue.fixVersions) {
     logger.info(
-      `JiraIssue is in project ${jiraIssue.projectKey} Fix Versions ${this.setToCommaDelimitedString(
+      `JiraIssue is in project ${jiraIssue.projectKey} Fix Versions ${Action.setToCommaDelimitedString(
         jiraIssue.fixVersions,
       )}`,
     );
@@ -354,86 +379,15 @@ export default class Action {
   }
 
   /**
-   * @typedef {Object} JiraIssueQuery
-   * @property {string[]|undefined=} fields
-   * @property {string[]|undefined=} expand
-   */
-  /**
    * @param {string} issueId
-   * @param {JiraIssueQuery|undefined=} query
-   * @return {Promise<JiraIssueObject[]>} */
-  async getIssue(issueId, query) {
+   * @return {Promise<JiraIssueObject>} */
+  async getIssue(issueId) {
     if (!isString(issueId)) {
       logger.error(`Issue ID must be a string, was: ${typeof issueId}, ${YAML.stringify(issueId)}`);
-      return [];
+      throw new Error(`Issue ID must be a string, was: ${typeof issueId}, ${YAML.stringify(issueId)}`);
     }
-    const defaultFields = ['description', 'project', 'fixVersions', 'priority', 'status', 'summary', 'duedate'];
-    const parameters = {
-      issueIdOrKey: issueId,
-      fields: defaultFields,
-    };
-    if (query !== undefined) {
-      parameters.fields = query.fields || defaultFields;
-      parameters.expand = query.expand || undefined;
-    }
-
-    return this.client.issues
-      .getIssue(parameters)
-      .then((issue) => {
-        const objectList = [];
-        if (issue) {
-          const jiraIssueObject = this.jiraIssueToJiraIssueObject(issue);
-          if (jiraIssueObject) {
-            objectList.push(jiraIssueObject);
-          }
-        }
-        return objectList;
-      })
-      .catch(() => {
-        logger.error(`Error getting issue ${issueId}`);
-        return [];
-      });
-  }
-
-  /**
-   * @param {import('jira.js/out/version2/models').Issue} jiraIssue
-   * @return {JiraIssueObject | undefined}
-   * */
-  jiraIssueToJiraIssueObject(jiraIssue) {
-    if (jiraIssue?.key) {
-      /** @type {JiraIssueObject} */
-      const jiraIssueObject = {
-        key: jiraIssue.key,
-        description: JiraMarkupToMarkdown.toM(jiraIssue.fields?.description ?? ''),
-        projectKey: jiraIssue?.fields?.project?.key,
-        projectName: jiraIssue?.fields?.project?.name,
-        fixVersions: map(jiraIssue?.fields?.fixVersions, 'name'),
-        priority: jiraIssue?.fields.priority?.name,
-        status: jiraIssue?.fields.status?.name,
-        summary: jiraIssue?.fields?.summary,
-        dueDate: jiraIssue?.fields?.duedate ?? undefined,
-        ghNumber: undefined,
-      };
-      if (this.fixVersions) {
-        const fixArray =
-          toUpper(this.fixVersions) === 'NONE'
-            ? []
-            : _(this.fixVersions)
-                .split(',')
-                .invokeMap((f) => trim(f))
-                .value();
-        if (this.argv.replaceFixVersions) {
-          jiraIssueObject.fixVersions = fixArray;
-        } else {
-          this.fixVersions = [...new Set([...jiraIssueObject.fixVersions, ...fixArray])];
-          jiraIssueObject.fixVersions = this.fixVersions;
-          setOutput(`${jiraIssueObject.key}_fixVersions`, this.setToCommaDelimitedString(jiraIssueObject.fixVersions));
-        }
-      }
-
-      return jiraIssueObject;
-    }
-    return;
+    const jio = find(this.jiraIssueArray, ['key', issueId]);
+    return jio ?? JiraIssueObject.create(issueId, this.jira, true, this.argv.failOnError);
   }
 
   /**
@@ -454,26 +408,6 @@ export default class Action {
       }
     }
     return set;
-  }
-
-  /**
-   *
-   * @param {Set<string>|string[]|string} stringSet
-   * @returns {string}
-   */
-  setToCommaDelimitedString(stringSet) {
-    if (stringSet) {
-      if (isSet(stringSet)) {
-        return [...stringSet].join(',');
-      }
-      if (isArray(stringSet)) {
-        return join(stringSet, ',');
-      }
-      if (isString(stringSet)) {
-        return stringSet;
-      }
-    }
-    return '';
   }
 
   /**
@@ -509,19 +443,6 @@ export default class Action {
   }
 
   /**
-   * @typedef {Object} JiraIssueObject
-   * @property {string} key
-   * @property {string} description=''
-   * @property {string} projectKey=
-   * @property {string} projectName=
-   * @property {string[]} fixVersions=[]
-   * @property {string|undefined} priority=
-   * @property {string|undefined} status=
-   * @property {string} summary=
-   * @property {string|undefined} dueDate=
-   * @property {number|undefined} ghNumber=
-   */
-  /**
    *
    * @returns {Promise<JiraIssueObject[]>}
    */
@@ -529,13 +450,13 @@ export default class Action {
     const stringSet = this.getIssueSetFromString(this.rawString);
     if (this.rawString) {
       logger.debug(`Raw string provided is: ${this.rawString}`);
-      setOutput('string_issues', this.setToCommaDelimitedString(stringSet));
+      setOutput('string_issues', Action.setToCommaDelimitedString(stringSet));
     }
 
     const titleSet = this.getIssueSetFromString(this.context?.payload.pull_request?.title);
     if (startsWith(this.context.eventName, 'pull_request')) {
       logger.debug(`Pull request title is: ${this.context.payload?.pull_request?.title}`);
-      setOutput('title_issues', this.setToCommaDelimitedString(titleSet));
+      setOutput('title_issues', Action.setToCommaDelimitedString(titleSet));
     }
     const commitSet = new Set();
     const referenceSet = new Set();
@@ -545,7 +466,7 @@ export default class Action {
       );
 
       referenceSet.add([...this.getIssueSetFromString(this.headRef)]);
-      setOutput('ref_issues', this.setToCommaDelimitedString(referenceSet));
+      setOutput('ref_issues', Action.setToCommaDelimitedString(referenceSet));
 
       if (this.context.payload?.pull_request?.number) {
         const nodes = await this.getRepositoriesNodes();
@@ -572,59 +493,33 @@ export default class Action {
         }
       }
 
-      setOutput('commit_issues', this.setToCommaDelimitedString(commitSet));
+      setOutput('commit_issues', Action.setToCommaDelimitedString(commitSet));
     }
     /** @type string[] */
     const combinedArray = [...new Set([...stringSet, ...titleSet, ...referenceSet, ...commitSet])];
     /** @type {Promise<number[]>[]} */
     const ghResults = [];
-    /** @type {Promise<JiraIssueObject[]>[]} */
+    /** @type {Promise<JiraIssueObject>[]} */
     const issuesPromises = [];
     for (const issueKey of combinedArray) {
-      issuesPromises.push(
-        this.getIssue(issueKey, {
-          fields: ['status', 'summary', 'fixVersions', 'priority', 'project', 'description', 'duedate'],
-        }),
-      );
+      issuesPromises.push(this.getIssue(issueKey));
     }
-    /** its always an array of 0 or 1 item */
-    const issues = await Promise.all(issuesPromises).then((results) =>
-      map(
-        filter(results, (f) => f && f.length > 0),
-        (r) => r[0],
-      ),
-    );
 
+    const issuesRaw = await Promise.all(issuesPromises);
+    const issues = filter(issuesRaw, (issue) => issue !== undefined && issue.exists);
     for (const issueObject of issues) {
       try {
         ghResults.push(this.jiraToGitHub(issueObject));
       } catch (error) {
         logger.error(error);
       }
-      this.foundKeys.push(issueObject);
+      this.jiraIssueArray.push(issueObject);
     }
 
     await Promise.all(ghResults);
-    setOutput('issues', this.setToCommaDelimitedString(combinedArray));
+    setOutput('issues', Action.setToCommaDelimitedString(combinedArray));
 
-    return this.foundKeys;
-  }
-
-  async getIssueTransitions(issueId) {
-    /** @type import('jira.js/out/version2/parameters').GetTransitions */
-    const parameters = {
-      issueIdOrKey: issueId,
-    };
-    return this.client.issues.getTransitions(parameters);
-  }
-
-  async transitionIssue(issueId, data) {
-    /** @type import('jira.js/out/version2/parameters').DoTransition */
-    const parameters = {
-      issueIdOrKey: issueId,
-      transition: data,
-    };
-    return this.client.issues.doTransition(parameters);
+    return this.jiraIssueArray;
   }
 
   /**
@@ -642,7 +537,8 @@ export default class Action {
         logger.debug(this.style.bold.green(`TransitionIssues: Checking transition for ${issueId}`));
         if (this.jiraTransition && this.transitionChain) {
           transitionOptionsProm.push(
-            this.getIssueTransitions(issueId)
+            this.jira
+              .getIssueTransitions(issueId)
               .then((transObject) => {
                 const { transitions } = transObject;
                 logger.info(
@@ -677,11 +573,11 @@ export default class Action {
                         `Applying transition:\n${this.style.bold.greenBright(YAML.stringify(transitionToApply))}`,
                       ),
                     );
-                    const tI = this.transitionIssue(issueId, {
-                      transition: {
-                        id: transitionId,
-                      },
-                    });
+                    /** @type {import('./lib/jira').IssueTransition} */
+                    const transitionData = {
+                      id: transitionId,
+                    };
+                    const tI = this.jira.transitionIssue(issueId, transitionData);
                     transitionProm.push(tI);
                   }
                 }
@@ -769,10 +665,11 @@ export default class Action {
       const match = searchString.match(issueIdRegEx);
 
       if (match) {
-        /** @type Promise<JiraIssueObject[]>[] */
+        /** @type Promise<JiraIssueObject>[] */
         const issuesPromises = [];
         for (const issueKey of match) {
           logger.debug(`Looking up key ${issueKey} in jira`);
+
           const issueFound = this.getIssue(issueKey);
           if (issueFound) {
             issuesPromises.push(issueFound);
@@ -780,12 +677,7 @@ export default class Action {
         }
 
         /** its always an array of 0 or 1 item */
-        issues = await Promise.all(issuesPromises).then((results) =>
-          map(
-            filter(results, (f) => f && f.length > 0),
-            (r) => r[0],
-          ),
-        );
+        issues = await Promise.all(issuesPromises);
       } else {
         logger.info(`String "${searchString}" does not contain issueKeys`);
       }

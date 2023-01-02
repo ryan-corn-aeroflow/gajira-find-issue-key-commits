@@ -43,25 +43,13 @@ module.exports = {
     },
     {
       files: ['__tests__/**/*.js'],
-      plugins: [
-        'promise',
-        'import',
-        '@babel',
-        'jest',
-        'optimize-regex',
-        'lodash',
-        'no-use-extend-native',
-        'editorconfig',
-      ],
+      plugins: ['promise', '@babel', 'jest', 'optimize-regex', 'lodash', 'no-use-extend-native', 'editorconfig'],
       extends: [
         'plugin:node/recommended',
         'plugin:lodash/recommended',
-        'airbnb-base',
         'eslint:recommended',
         'plugin:jest/recommended',
         'plugin:optimize-regex/recommended',
-        'plugin:switch-case/recommended',
-        'plugin:node/recommended',
         pp,
       ],
       env: {
@@ -77,6 +65,7 @@ module.exports = {
         sourceType: 'module',
       },
       rules: {
+        'dot-notation': ['off', { allowKeywords: true }],
         'import/order': 'off',
         'lodash/import-scope': 'off',
         '@babel/new-cap': 'error',

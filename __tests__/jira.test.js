@@ -6,7 +6,36 @@ import { parseArguments } from '../src';
 import Action from '../src/action';
 import * as fsHelper from '../src/lib/fs-helper';
 // import { octokit } from '../src/utils';
-import { githubEvent, loadEnvironment } from './config/constants';
+import { loadEnvironment } from './config/constants';
+
+const octokit = {
+  request: {},
+  graphql: {},
+  log: {},
+  hook: {},
+  auth: {},
+  rest: {
+    pulls: {
+      update: jest.fn(async (data) => console.log(data)),
+    },
+    paginate: {
+      iterator: jest.fn(),
+    },
+    issues: {
+      get: jest.fn(),
+      createMilestone: jest.fn(),
+      listMilestonesForRepo: {
+        endpoint: {
+          merge: jest.fn(),
+        },
+      },
+      update: jest.fn(),
+    },
+    repos: {
+      getContents: jest.fn(),
+    },
+  },
+};
 
 const tmpFolder = path.join(cwd(), 'tmp');
 fsHelper.mkdir(tmpFolder);
@@ -23,6 +52,8 @@ const filePaths = [
 _.forEach(filePaths, (filePath) => {
   fsHelper.appendFileSync(filePath, '');
 });
+const githubPullRequestEvent = JSON.parse(fsHelper.loadFileSync('./__tests__/config/pull_request.event.json'));
+
 const originalGitHubWorkspace = process.env.GITHUB_WORKSPACE;
 const gitHubWorkspace = path.resolve('/checkout-tests/workspace');
 // Shallow clone original @actions/github context
@@ -99,20 +130,20 @@ describe('validate that jira variables exist', () => {
     expect.hasAssertions();
     const argv = parseArguments({});
     expect(argv.string).toContain(issueKey);
-    const index = new Action({ context: githubEvent, argv, config: argv.jiraConfig });
+    const index = new Action({ context: githubPullRequestEvent, argv, config: argv.jiraConfig });
     const result = await index.getIssue(issueKey);
-    expect(result[0].key).toBe(issueKey);
+    expect(result.key).toBe(issueKey);
   });
   it('Updates PR title and body', async () => {
     expect.hasAssertions();
     const argv = parseArguments({});
+    // @ts-ignore
+    argv.octokit = octokit;
     expect(argv.string).toContain(issueKey);
-    const index = new Action({ context: githubEvent, argv, config: argv.jiraConfig });
-    // jest.spyOn(octokit, 'rest.pulls.update').mockImplementation((data) => {
-    //   console.log(data);
-    // });
+    const index = new Action({ context: githubPullRequestEvent, argv, config: argv.jiraConfig });
+
     const result = await index.getIssue(issueKey);
 
-    expect(result[0].key).toBe(issueKey);
+    expect(result.key).toBe(issueKey);
   });
 });

@@ -54,5 +54,5 @@
 
 export * from './action-error';
 export * from './fs-helper';
-export * from './create-issue';
-export * from './update-issue';
+export * from './jira-issue-object';
+export * from './jira';

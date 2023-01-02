@@ -2,7 +2,7 @@
   "name": "gajira-find-issue-key",
   "version": "2.4.6",
   "description": "",
-  "main": "lib/index.mjs",
+  "main": "lib/index.cjs",
   "type": "module",
   "repository": {
     "type": "git",
@@ -34,7 +34,6 @@
     "test": "NODE_ENV=testing yarn exec jest",
     "prepare": "[ -n ${GITHUB_ACTIONS:-} ] || husky install",
     "build": "rimraf lib && node .github/scripts/esbuild.cjs",
-    "build:inline": "rimraf lib && esbuild src/index.js --bundle --outdir=lib/ --platform=node --target=node16.10 --sourcemap --format=cjs; git add lib",
     "test:act": "act -v",
     "prelint": "pretty-quick",
     "format": "prettier --write . --config .prettierrc.cjs --ignore-unknown",
@@ -68,6 +67,7 @@
     "jira.js": "^2.15.15",
     "lodash": "^4.17.21",
     "node-fetch": "^3.3.0",
+    "node-html-markdown": "^1.3.0",
     "yaml": "^2.1.3"
   },
   "devDependencies": {

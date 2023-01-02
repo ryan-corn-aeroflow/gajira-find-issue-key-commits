@@ -1,5 +1,10 @@
-import _ from 'lodash';
+import filter from 'lodash/filter';
+import includes from 'lodash/includes';
 import isArray from 'lodash/isArray';
+import map from 'lodash/map';
+import split from 'lodash/split';
+import trim from 'lodash/trim';
+import uniq from 'lodash/uniq';
 import * as YAML from 'yaml';
 import {
   context,
@@ -10,25 +15,14 @@ import {
 } from '@broadshield/github-actions-core-typed-inputs';
 import Action from './action';
 import * as fsHelper from './lib/fs-helper';
+import { JiraIssueObject } from './lib/jira-issue-object';
 
 const cliConfigPath = `${process.env.HOME}/.jira.d/config.yml`;
 const configPath = `${process.env.HOME}/jira/config.yml`;
-/**
- * @typedef {Object} JiraIssueObject
- * @property {string} key
- * @property {string} description=''
- * @property {string} projectKey=
- * @property {string} projectName=
- * @property {string[]} fixVersions=[]
- * @property {string|undefined} priority=
- * @property {string|undefined} status=
- * @property {string} summary=
- * @property {string|undefined} dueDate=
- * @property {number|undefined} ghNumber=
- */
+
 /**
  * Write the issue key to the config file
- * @param {Array<JiraIssueObject>} result
+ * @param {Array<import('./lib/jira-issue-object').JiraIssueObject>} result
  * @returns {Promise<void>}
  */
 export async function writeKey(result) {
@@ -91,13 +85,13 @@ export const exec = async () => {
 };
 
 function trimArray(inputArray) {
-  return _.filter(
-    _.map(inputArray, (f) => _.trim(f)),
+  return filter(
+    map(inputArray, (f) => trim(f)),
     (f) => f !== '',
   );
 }
 function commaDelimitedToArray(input) {
-  const inputArray = isArray(input) ? input : _.split(input, ',');
+  const inputArray = isArray(input) ? input : split(input, ',');
 
   return trimArray(inputArray);
 }
@@ -111,47 +105,20 @@ export function concatStringList(providedString1, providedString2) {
   if (!providedString1 && !providedString2) {
     return [];
   }
-  return _.uniq([...commaDelimitedToArray(providedString1), ...commaDelimitedToArray(providedString2)]);
+  return uniq([...commaDelimitedToArray(providedString1), ...commaDelimitedToArray(providedString2)]);
 }
-/**
- * @typedef {object} JiraConfig
- * @property {string} baseUrl
- * @property {string} token
- * @property {string} email
- */
+
 /**
  * @typedef {object} ProvidedJiraConfig
  * @property {string|undefined=} baseUrl
  * @property {string|undefined=} token
  * @property {string|undefined=} email
  */
-/**
- * @typedef {object} ArgumentsType
- * @property {string} string
- * @property {string} from
- * @property {string} headRef
- * @property {string} baseRef
- * @property {boolean} includeMergeMessages
- * @property {boolean} GitHubIssues
- * @property {boolean} GitHubMilestones
- * @property {string} returns
- * @property {JiraConfig} jiraConfig
- * @property {boolean} updatePRTitle
- * @property {string} transitionChain
- * @property {string} transitionOnNewBranch
- * @property {string} transitionOnPrOpen
- * @property {string} transitionOnPrMerge
- * @property {string} transitionOnPrApproval
- * @property {boolean} gist_private
- * @property {string} gist_name
- * @property {string} jiraTransition
- * @property {string[]} fixVersions
- * @property {boolean} replaceFixVersions
- */
+
 /**
  *
  * @param {ProvidedJiraConfig} providedJiraConfig
- * @returns {ArgumentsType}
+ * @returns {import('./@types').Args}
  */
 export function parseArguments(providedJiraConfig) {
   const fromList = ['string', 'commits', 'pull_request', 'branch'];
@@ -174,8 +141,9 @@ export function parseArguments(providedJiraConfig) {
   }
 
   return {
+    token: getStringInput('github-token', process.env.GITHUB_TOKEN),
     string: getStringInput('string'),
-    from: _.includes(fromList, getStringInput('from')) ? getStringInput('from') : 'commits',
+    from: includes(fromList, getStringInput('from')) ? getStringInput('from') : 'commits',
     headRef: getStringInput('head-ref'),
     baseRef: getStringInput('base-ref'),
     includeMergeMessages: getBooleanInput('include-merge-messages'),
@@ -193,6 +161,8 @@ export function parseArguments(providedJiraConfig) {
     jiraTransition: getStringInput('jira-transition'),
     fixVersions: concatStringList(getStringInput('fix-versions', ''), getStringInput('fix-version', '')),
     replaceFixVersions: getBooleanInput('replace-fix-versions'),
+    failOnError: getBooleanInput('fail-on-error', true),
+    ignoreCommits: getBooleanInput('ignore-commits', false),
     jiraConfig,
   };
 }
