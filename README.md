@@ -39,12 +39,12 @@ For examples on how to use this, check out the [gajira-demo](https://github.com/
 - uses: Broadshield/gajira-find-issue-key@main
   with:
     # Provide a string to extract issue key from
-    string: ''
+    string: ""
 
     # Find from predefined place. Can be 'branch', 'pull_request', 'string', or
     # 'commits', default is 'commits'
     # Default: commits
-    from: ''
+    from: ""
 
     # Options can be: 'first', or 'all'
     # This variable controls both how many results are returned, and how many results
@@ -55,32 +55,32 @@ For examples on how to use this, check out the [gajira-demo](https://github.com/
     # NOTE: This action originally returned only the first Jira Ticket ID found. For
     # backwards compatibility the default is set to 'first'.
     # Default: first
-    returns: ''
+    returns: ""
 
     # The Git Head Ref to which commit messages will be collected up to. If the
     # base-ref is included, and the github event is a pull_request or push, The
     # head-ref from the event will be used.
-    head-ref: ''
+    head-ref: ""
 
     # The Git Base Ref to which commit messages will be collected up from. If the
     # base-ref is not included,
-    base-ref: ''
+    base-ref: ""
 
     # Collects the Jira issue numbers from the Pull Request, and puts them at the
     # start of the PR title. Trims to 70 characters, i.e:
     #  MYISSUE-123, MYISSUE-124: Resolve callback error, and fix typo
     # Default: true
-    standardize-pr-title: ''
+    standardize-pr-title: ""
 
     # When parsing commit messages, include merge and pull messages. This is disabled
     # by default, to exclude tickets that may be included or fixed in other branches
     # or pull requests.
     # Default: false
-    include-merge-messages: ''
+    include-merge-messages: ""
 
     # Create GitHub Milestones from the Jira Issue' sprints
     # Default: false
-    generate-github-milestones: ''
+    generate-github-milestones: ""
 
     # When a Jira Issue is found, the existing list of GitHub issues is iterated
     # through, and if a GitHub issue starts with the Jira Issue Key, then the Github
@@ -92,42 +92,42 @@ For examples on how to use this, check out the [gajira-demo](https://github.com/
     # pull_request is closed, and merged, the GitHub issues are also closed, by adding
     # 'Resolves #<IssueNumber>' syntax on the pull_request body
     # Default: false
-    generate-github-issues: ''
+    generate-github-issues: ""
 
     # A comma separated list of all allowed Jira Transitions in order
-    jira-transition-chain: ''
+    jira-transition-chain: ""
 
     # The name of the transition to apply when a new branch is created
-    jira-transition-on-new-branch: ''
+    jira-transition-on-new-branch: ""
 
     # The name of the transition to apply when a Pull Request is opened
-    jira-transition-on-pr-open: ''
+    jira-transition-on-pr-open: ""
 
     # The name of the transition to apply when a Pull Request is approved
-    jira-transition-on-pr-approval: ''
+    jira-transition-on-pr-approval: ""
 
     # The name of the transition to apply when a Pull Request is closed and merged
-    jira-transition-on-pr-merge: ''
+    jira-transition-on-pr-merge: ""
 
     # The Jira Fix Versions that the Jira Issues found will be assigned.
-    fix-version: ''
+    fix-version: ""
 
     # The Jira Fix Versions that the Jira Issues found will be assigned, as a comma
     # separated list. Use `NONE` to remove the Fix Version from the Jira Issue.
-    fix-versions: ''
+    fix-versions: ""
 
     # If 'true', then the Jira Fix Versions will be replaced with the 'fix-versions'
     # input. Otherwise it will combine the existing Fix Versions with the
     # 'fix-versions' input.
     # Default: true
-    replace-fix-versions: ''
+    replace-fix-versions: ""
 
     # GitHub Token used for authentication
-    github-token: ''
+    github-token: ""
 
     # If 'true', then the Gist will be private. Otherwise it will be public.
     # Default: false
-    gist-private: ''
+    gist-private: ""
 
     # Options can be: 'first', or 'all'
     # This variable controls both how many results are returned, and how many results
@@ -137,17 +137,17 @@ For examples on how to use this, check out the [gajira-demo](https://github.com/
     # to pull_request.head.ref from the github event.
     # NOTE: This action originally returned only the first Jira Ticket ID found. For
     # backwards compatibility the default is set to 'first'.
-    create-gist-output-named: ''
+    create-gist-output-named: ""
 
     # The Jira cloud base url including protocol i.e. 'https://company.atlassian.net'
     # or use environment variable JIRA_BASE_URL
-    jira_base_url: ''
+    jira_base_url: ""
 
     # The Jira cloud user email address or use environment variable JIRA_USER_EMAIL
-    jira_user_email: ''
+    jira_user_email: ""
 
     # The Jira cloud user api token or use environment variable JIRA_API_TOKEN
-    jira_api_token: ''
+    jira_api_token: ""
 ```
 
 <!-- end usage -->

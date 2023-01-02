@@ -1,6 +1,6 @@
 {
   "name": "gajira-find-issue-key",
-  "version": "2.4.6",
+  "version": "2.4.7",
   "description": "",
   "main": "lib/index.cjs",
   "type": "module",
@@ -9,7 +9,18 @@
     "url": "git+https://github.com/Broadshield/gajira-find-issue-key.git",
     "directory": "."
   },
-  "keywords": ["actions", "github", "jira", "node16", "tickets", "jira server", "github enterprise", "sprint", "milestone", "workflow"],
+  "keywords": [
+    "actions",
+    "github",
+    "jira",
+    "node16",
+    "tickets",
+    "jira server",
+    "github enterprise",
+    "sprint",
+    "milestone",
+    "workflow"
+  ],
   "engines": {
     "node": ">=16.10.0"
   },
@@ -34,7 +45,7 @@
     "bump:patch": "yarn bump patch",
     "bump:minor": "yarn bump minor",
     "postpostbump": "yarn lint && yarn test && yarn build",
-    "generate-docs": "npx github-action-readme-generator && pretty-quick && git add .ghadocs.json README.md"
+    "generate-docs": "npx github-action-readme-generator && git add .ghadocs.json README.md"
   },
   "license": "ISC",
   "resolutions": {
