@@ -1,4 +1,3 @@
-
 export interface JiraConfig {
   baseUrl: string;
   token: string;
@@ -23,17 +22,17 @@ export interface Args {
   failOnError: boolean;
   octokit?: import('@broadshield/github-actions-octokit-hydrated').OctokitInstance;
   from: string;
-  GitHubIssues:boolean;
-  GitHubMilestones:boolean;
+  GitHubIssues: boolean;
+  GitHubMilestones: boolean;
   returns: string;
   jiraConfig: JiraConfig;
-  updatePRTitle:boolean;
+  updatePRTitle: boolean;
   transitionChain: string;
   transitionOnNewBranch: string;
   transitionOnPrOpen: string;
   transitionOnPrMerge: string;
   transitionOnPrApproval: string;
-  gist_private:boolean;
+  gist_private: boolean;
   gist_name: string;
   jiraTransition: string;
   fixVersions: string[];

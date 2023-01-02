@@ -15,7 +15,6 @@ import {
 } from '@broadshield/github-actions-core-typed-inputs';
 import Action from './action';
 import * as fsHelper from './lib/fs-helper';
-import { JiraIssueObject } from './lib/jira-issue-object';
 
 const cliConfigPath = `${process.env.HOME}/.jira.d/config.yml`;
 const configPath = `${process.env.HOME}/jira/config.yml`;

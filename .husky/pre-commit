@@ -3,4 +3,4 @@
 yarn run build
 yarn run test
 yarn run lint
-yarn run generate-docs
+

@@ -7,7 +7,7 @@ newtag="v$(jq -r '.version' package.json)"
 
 git add lib package.json yarn.lock .yarn
 git commit -m "chore(release): bump version to ${newtag}" --no-verify
-
+yarn run generate-docs
 # newtag2="$(git semver get)"
 # if [[ "${newtag}" != "${newtag2}" ]]; then
 #   echo "ERROR: new tag does not match expected tag"
