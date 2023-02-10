@@ -496,7 +496,7 @@ export default class Action {
       setOutput('commit_issues', Action.setToCommaDelimitedString(commitSet));
     }
     /** @type string[] */
-    const combinedArray = [...new Set([...stringSet, ...titleSet, ...referenceSet, ...commitSet])].flat();
+    const combinedArray = [...new Set([...stringSet, ...titleSet, ...referenceSet, ...commitSet].flat())];
     /** @type {Promise<number[]>[]} */
     const ghResults = [];
     /** @type {Promise<JiraIssueObject>[]} */
