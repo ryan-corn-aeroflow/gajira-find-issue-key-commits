@@ -207,7 +207,8 @@ export default class Action {
   }
 
   async updatePullRequestBody(jiraIssuesList, startToken, endToken) {
-    if (!this.context.payload.pull_request) {
+    const pullRequest = this.context.payload.pull_request ?? this.argv.pr;
+    if (!pullRequest) {
       logger.info(`Skipping pull request update, pull_request not found in current github context, or received event`);
 
       return;
@@ -215,7 +216,7 @@ export default class Action {
     const issues = this.formattedIssueList(jiraIssuesList);
     const text = `### Linked Jira Issues:\n\n${issues}\n`;
 
-    const { number, body, title } = this.context.payload.pull_request;
+    const { number, body, title } = pullRequest;
 
     logger.debug(`Updating PR number ${number}`);
     logger.debug(`With text:\n ${text}`);
@@ -413,10 +414,11 @@ export default class Action {
    * @return {import('@octokit/graphql/dist-types/types').GraphQlResponse<any>}
    * */
   async getRepositoriesNodes(after) {
+    const pullRequest = this.context?.payload.pull_request ?? this.argv.pr;
     return graphqlWithAuth(listCommitMessagesInPullRequest, {
       owner: this.context.repo.owner,
       repo: this.context.repo.repo,
-      prNumber: this.context.payload?.pull_request?.number,
+      prNumber: pullRequest?.number ?? this.argv.pr?.number,
       after,
     }).then(
       async (result) => {
@@ -450,10 +452,10 @@ export default class Action {
       logger.debug(`Raw string provided is: ${this.rawString}`);
       setOutput('string_issues', Action.setToCommaDelimitedString(stringSet));
     }
-
-    const titleSet = this.getIssueSetFromString(this.context?.payload.pull_request?.title);
-    if (startsWith(this.context.eventName, 'pull_request')) {
-      logger.debug(`Pull request title is: ${this.context.payload?.pull_request?.title}`);
+    const pullRequest = this.context?.payload.pull_request ?? this.argv.pr;
+    const titleSet = this.getIssueSetFromString(pullRequest?.title);
+    if (pullRequest?.title) {
+      logger.debug(`Pull request title is: ${pullRequest?.title}`);
       setOutput('title_issues', Action.setToCommaDelimitedString(titleSet));
     }
     const commitSet = new Set();
@@ -466,7 +468,7 @@ export default class Action {
       referenceSet.add([...this.getIssueSetFromString(this.headRef)]);
       setOutput('ref_issues', Action.setToCommaDelimitedString(referenceSet));
 
-      if (this.context.payload?.pull_request?.number) {
+      if (pullRequest?.number) {
         const nodes = await this.getRepositoriesNodes();
         if (nodes) {
           for (const node of nodes) {

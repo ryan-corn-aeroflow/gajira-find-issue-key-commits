@@ -38,6 +38,7 @@ export interface Args {
   fixVersions: string[];
   replaceFixVersions: boolean;
   updatePRTitle: boolean;
+  pr: import('./utils').PullRequest | import('./utils').WebhookPayload | undefined;
 }
 
 export interface RefRange {

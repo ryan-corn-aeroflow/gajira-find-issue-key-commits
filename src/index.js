@@ -15,7 +15,7 @@ import {
 } from '@broadshield/github-actions-core-typed-inputs';
 import Action from './action';
 import * as fsHelper from './lib/fs-helper';
-import { assignReferences } from './utils';
+import { assignReferences, getPRfromSha } from './utils';
 
 const cliConfigPath = `${process.env.HOME}/.jira.d/config.yml`;
 const configPath = `${process.env.HOME}/jira/config.yml`;
@@ -67,7 +67,11 @@ export const exec = async () => {
     }
 
     const argv = parseArguments(configFromFile);
-    const references = await assignReferences(context.payload, context, argv);
+    /**
+     * @type {import('./utils').PullRequest |import('./utils').WebhookPayload| undefined}
+     */
+    argv.pr = context.payload.pull_request ?? (await getPRfromSha(context.sha));
+    const references = await assignReferences(context, argv);
     argv.headRef = references.headReference;
     argv.baseRef = references.baseReference;
     const config = {
@@ -167,6 +171,7 @@ export function parseArguments(providedJiraConfig) {
     failOnError: getBooleanInput('fail-on-error', true),
     ignoreCommits: getBooleanInput('ignore-commits', false),
     jiraConfig,
+    pr: undefined,
   };
 }
 

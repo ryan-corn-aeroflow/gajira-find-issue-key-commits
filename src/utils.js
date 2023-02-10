@@ -180,11 +180,16 @@ export function assignJiraTransition(_context, _argv) {
     return _argv.transitionOnNewBranch;
   }
 }
-
+/**
+ * @typedef {import('@actions/github/lib/interfaces').WebhookPayload} WebhookPayload
+ * */
+/**
+ * @typedef {import('@octokit/openapi-types').components['schemas']['pull-request-simple']} PullRequest
+ * */
 /**
  *
  * @param {string} sha
- * @returns {Promise<{ "headReference": string, "baseReference": string } | undefined>}
+ * @returns {Promise<WebhookPayload | undefined>}
  */
 export async function getPRfromSha(sha, state = 'open') {
   if (!sha) {
@@ -208,30 +213,24 @@ export async function getPRfromSha(sha, state = 'open') {
     return;
   }
   logger.debug(`getPRfromSha: found PR from sha:${sha} = headref:${pr.head.ref} baseref:${pr.base.ref}`);
-  return {
-    headReference: pr.head.ref,
-    baseReference: pr.base.ref,
-  };
+  return pr;
 }
 
 /**
- * @param {import('@actions/github/lib/interfaces').WebhookPayload} _githubEvent
+
  * @param {import('@broadshield/github-actions-core-typed-inputs').Context} _context
  * @param {import('./@types').Args} _argv
  * @returns {Promise<{ "headReference": string, "baseReference": string }>}
  */
-export async function assignReferences(_githubEvent, _context, _argv) {
+export async function assignReferences(_context, _argv) {
   let headReference;
   let baseReference;
+  const pullRequest = _argv.pr;
 
-  if (Object.prototype.hasOwnProperty.call(_githubEvent, 'pull_request')) {
-    headReference = _githubEvent.pull_request?.head?.ref || undefined;
-    baseReference = _githubEvent.pull_request?.base?.ref || undefined;
+  if (pullRequest) {
+    headReference = pullRequest?.head?.ref || undefined;
+    baseReference = pullRequest?.base?.ref || undefined;
     logger.debug(`assignReferences: pull_request event detected. ${headReference} ${baseReference}`);
-  } else if (Object.prototype.hasOwnProperty.call(_githubEvent, 'ref')) {
-    headReference = _githubEvent.ref || undefined;
-    baseReference = undefined;
-    logger.debug(`assignReferences: non pull_request event detected. ${headReference} ${baseReference}`);
   }
   if (!headReference && !baseReference && startsWith(_context.eventName, 'pull_request')) {
     headReference = headReference || _context.payload?.pull_request?.head?.ref || undefined;
@@ -239,14 +238,8 @@ export async function assignReferences(_githubEvent, _context, _argv) {
   } else if (_context.eventName === 'push') {
     if (_context.payload?.ref && startsWith(_context.payload.ref, 'refs/tags')) {
       baseReference = baseReference || getPreviousReleaseReference(octokit);
-    } else {
-      const prdata = await getPRfromSha(_context.sha);
-      if (prdata) {
-        headReference = prdata.headReference;
-        baseReference = prdata.baseReference;
-      } else {
-        headReference = headReference || _context.payload.ref || undefined;
-      }
+    } else if (!pullRequest) {
+      headReference = headReference || _context.payload.ref || undefined;
     }
   }
 
