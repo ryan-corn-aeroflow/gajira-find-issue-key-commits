@@ -26,7 +26,6 @@ import { JiraIssueObject } from './lib/jira-issue-object';
 import {
   GetStartAndEndPoints,
   assignJiraTransition,
-  assignReferences,
   endJiraToken,
   graphqlWithAuth,
   issueIdRegEx,
@@ -131,9 +130,8 @@ export default class Action {
     this.fixVersions = argv.fixVersions;
     this.transitionChain = split(argv.transitionChain ?? '', ',');
     this.jiraTransition = assignJiraTransition(context, argv);
-    const references = assignReferences(context, context, argv);
-    this.headRef = references.headRef;
-    this.baseRef = references.baseRef;
+    this.headRef = argv.headRef;
+    this.baseRef = argv.baseRef;
 
     if (argv.gist_name) {
       this.createGist = true;
@@ -502,6 +500,7 @@ export default class Action {
     /** @type {Promise<JiraIssueObject>[]} */
     const issuesPromises = [];
     for (const issueKey of combinedArray) {
+      logger.info(`getJiraKeysFromGitRange: Getting issue ${issueKey} from Jira`);
       issuesPromises.push(this.getIssue(issueKey));
     }
 
@@ -529,11 +528,14 @@ export default class Action {
   async transitionIssues(jiraIssuesList) {
     logger.debug(this.style.bold.green(`TransitionIssues: Number of keys ${jiraIssuesList?.length}`));
     const transitionOptionsProm = [];
-
+    /** @type string[] */
     const issueIds = [];
     if (isArray(jiraIssuesList) && jiraIssuesList?.length > 0) {
       for (const a of jiraIssuesList) {
         const issueId = a?.key;
+        if (isString(issueId)) {
+          issueIds.push(issueId);
+        }
         logger.debug(this.style.bold.green(`TransitionIssues: Checking transition for ${issueId}`));
         if (this.jiraTransition && this.transitionChain) {
           transitionOptionsProm.push(
@@ -564,8 +566,6 @@ export default class Action {
                     transitions,
                     (t) => t.id === link || toLower(t.name) === toLower(link),
                   );
-
-                  issueIds.push(issueId);
                   if (transitionToApply) {
                     const transitionId = transitionToApply.id;
                     logger.info(
@@ -589,18 +589,19 @@ export default class Action {
     }
     await Promise.all(transitionOptionsProm);
     const issuesProm = [];
-    for (const issueId of issueIds) {
-      /** @type {JiraIssueObject|undefined} */
-      const issueObject = find(jiraIssuesList, (indexO) => indexO?.key === issueId);
-      if (issueObject) {
-        const w = this.getIssue(issueId).then((transitionedIssue) => {
-          const statusName = get(transitionedIssue, 'fields.status.name');
-
-          logger.info(this.style.bold.green(`Jira ${issueId} status is: ${statusName}.`));
-          logger.info(this.style.bold.green(`Link to issue: ${this.config.baseUrl}/browse/${issueId}`));
-          issueObject.status = statusName;
-        });
-        issuesProm.push(w);
+    if (issueIds.length > 0) {
+      for (const issueId of issueIds) {
+        /** @type {JiraIssueObject|undefined} */
+        const issueObject = find(jiraIssuesList, (indexO) => indexO?.key === issueId);
+        if (issueObject) {
+          const w = this.getIssue(issueId).then((transitionedIssue) => {
+            const statusName = get(transitionedIssue, 'fields.status.name');
+            logger.info(this.style.bold.green(`Jira ${issueId} status is: ${statusName}.`));
+            logger.info(this.style.bold.green(`Link to issue: ${this.config.baseUrl}/browse/${issueId}`));
+            issueObject.status = statusName;
+          });
+          issuesProm.push(w);
+        }
       }
     }
     await Promise.all(issuesProm);

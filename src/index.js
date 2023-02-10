@@ -15,6 +15,7 @@ import {
 } from '@broadshield/github-actions-core-typed-inputs';
 import Action from './action';
 import * as fsHelper from './lib/fs-helper';
+import { assignReferences } from './utils';
 
 const cliConfigPath = `${process.env.HOME}/.jira.d/config.yml`;
 const configPath = `${process.env.HOME}/jira/config.yml`;
@@ -66,6 +67,9 @@ export const exec = async () => {
     }
 
     const argv = parseArguments(configFromFile);
+    const references = await assignReferences(context.payload, context, argv);
+    argv.headRef = references.headReference;
+    argv.baseRef = references.baseReference;
     const config = {
       baseUrl: argv?.jiraConfig?.baseUrl,
       token: argv?.jiraConfig?.token,

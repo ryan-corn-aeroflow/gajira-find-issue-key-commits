@@ -1,4 +1,5 @@
 // eslint-disable-next-line lodash/import-scope
+import _ from 'lodash';
 import includes from 'lodash/includes';
 import isString from 'lodash/isString';
 import replace from 'lodash/replace';
@@ -6,7 +7,7 @@ import slice from 'lodash/slice';
 import startsWith from 'lodash/startsWith';
 import toLower from 'lodash/toLower';
 import toUpper from 'lodash/toUpper';
-import { context, getGithubToken } from '@broadshield/github-actions-core-typed-inputs';
+import { context, getGithubToken, logger } from '@broadshield/github-actions-core-typed-inputs';
 import { createOctokit } from '@broadshield/github-actions-octokit-hydrated';
 import { graphql } from '@octokit/graphql';
 
@@ -180,26 +181,78 @@ export function assignJiraTransition(_context, _argv) {
   }
 }
 
-export function assignReferences(_githubEvent, _context, _argv) {
+/**
+ *
+ * @param {string} sha
+ * @returns {Promise<{ "headReference": string, "baseReference": string } | undefined>}
+ */
+export async function getPRfromSha(sha, state = 'open') {
+  if (!sha) {
+    return;
+  }
+  const result = await octokit.rest.repos.listPullRequestsAssociatedWithCommit({
+    owner: context.repo.owner,
+    repo: context.repo.repo,
+    commit_sha: sha,
+  });
+
+  const prs = _.filter(result.data, (element) => state === 'all' || element.state === state);
+  const pr =
+    _.find(prs, (element) => {
+      return context.payload.ref === `refs/heads/${element.head.ref}`;
+    }) || prs[0];
+  if (!pr) {
+    return;
+  }
+  if (pr.head.sha !== sha) {
+    return;
+  }
+  logger.debug(`getPRfromSha: found PR from sha:${sha} = headref:${pr.head.ref} baseref:${pr.base.ref}`);
+  return {
+    headReference: pr.head.ref,
+    baseReference: pr.base.ref,
+  };
+}
+
+/**
+ * @param {import('@actions/github/lib/interfaces').WebhookPayload} _githubEvent
+ * @param {import('@broadshield/github-actions-core-typed-inputs').Context} _context
+ * @param {import('./@types').Args} _argv
+ * @returns {Promise<{ "headReference": string, "baseReference": string }>}
+ */
+export async function assignReferences(_githubEvent, _context, _argv) {
   let headReference;
   let baseReference;
+
   if (Object.prototype.hasOwnProperty.call(_githubEvent, 'pull_request')) {
-    headReference = _githubEvent.pull_request.head.ref || undefined;
-    baseReference = _githubEvent.pull_request.base.ref || undefined;
+    headReference = _githubEvent.pull_request?.head?.ref || undefined;
+    baseReference = _githubEvent.pull_request?.base?.ref || undefined;
+    logger.debug(`assignReferences: pull_request event detected. ${headReference} ${baseReference}`);
   } else if (Object.prototype.hasOwnProperty.call(_githubEvent, 'ref')) {
     headReference = _githubEvent.ref || undefined;
     baseReference = undefined;
+    logger.debug(`assignReferences: non pull_request event detected. ${headReference} ${baseReference}`);
   }
-  if (includes(_context.eventName, 'pull_request')) {
+  if (!headReference && !baseReference && startsWith(_context.eventName, 'pull_request')) {
     headReference = headReference || _context.payload?.pull_request?.head?.ref || undefined;
     baseReference = baseReference || _context.payload?.pull_request?.base?.ref || undefined;
   } else if (_context.eventName === 'push') {
     if (_context.payload?.ref && startsWith(_context.payload.ref, 'refs/tags')) {
       baseReference = baseReference || getPreviousReleaseReference(octokit);
+    } else {
+      const prdata = await getPRfromSha(_context.sha);
+      if (prdata) {
+        headReference = prdata.headReference;
+        baseReference = prdata.baseReference;
+      } else {
+        headReference = headReference || _context.payload.ref || undefined;
+      }
     }
-    headReference = headReference || _context.payload.ref || undefined;
   }
+
   headReference = _argv.headRef || headReference || undefined;
   baseReference = _argv.baseRef || baseReference || undefined;
-  return { headRef: headReference, baseRef: baseReference };
+  logger.debug(`headRef: ${headReference}`);
+  logger.debug(`baseRef: ${baseReference}`);
+  return { headReference, baseReference };
 }
