@@ -1,6 +1,6 @@
 {
   "name": "gajira-find-issue-key",
-  "version": "2.4.9",
+  "version": "2.4.10",
   "description": "",
   "main": "lib/index.cjs",
   "type": "module",
@@ -33,7 +33,7 @@
     "runtime": "./runtime.js",
     "test": "NODE_ENV=testing yarn exec jest",
     "prepare": "[ -n ${GITHUB_ACTIONS:-} ] || husky install",
-    "build": "rimraf lib && node .github/scripts/esbuild.cjs",
+    "build": "rimraf lib && node .github/scripts/esbuild.cjs && git add lib",
     "test:act": "act -v",
     "prelint": "pretty-quick",
     "format": "prettier --write . --config .prettierrc.cjs --ignore-unknown",

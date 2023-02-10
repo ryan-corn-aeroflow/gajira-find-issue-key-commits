@@ -5,7 +5,8 @@ bump="${1:-patch}"
 yarn version -i "${bump}" || true
 newtag="v$(jq -r '.version' package.json)"
 yarn run generate-docs
-git add lib package.json yarn.lock .yarn
+yarn build
+git add lib package.json yarn.lock .yarn release.sh lib README.md
 git commit -m "chore(release): bump version to ${newtag}" --no-verify
 
 # newtag2="$(git semver get)"
