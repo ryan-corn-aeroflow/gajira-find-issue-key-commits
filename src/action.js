@@ -307,6 +307,7 @@ export default class Action {
       }
     } else {
       logger.debug(`Creating ${issueKey}`);
+
       issuePromises.push(
         octokit.rest.issues.create({
           ...this.context.repo,
@@ -318,17 +319,23 @@ export default class Action {
         }),
       );
     }
-    return Promise.all(issuePromises).then((values) => {
-      const issueNumbersInner = [];
-      for (const issue of values) {
-        core.startGroup(`GitHub issue ${issue.data.number} data`);
-        logger.debug(`Github Issue: \n${YAML.stringify(issue.data)}`);
-        core.endGroup();
-        this.githubIssues.push(String(issue.data.number));
-        issueNumbersInner.push(issue.data.number);
-      }
-      return issueNumbersInner;
-    });
+    return Promise.all(issuePromises)
+      .then((values) => {
+        const issueNumbersInner = [];
+        for (const issue of values) {
+          core.startGroup(`GitHub issue ${issue.data.number} data`);
+          logger.debug(`Github Issue: \n${YAML.stringify(issue.data)}`);
+          core.endGroup();
+          this.githubIssues.push(String(issue.data.number));
+          issueNumbersInner.push(issue.data.number);
+        }
+        return issueNumbersInner;
+      })
+      .catch((error) => {
+        logger.error('Unable to update Github Issues');
+        logger.error(error);
+        return [];
+      });
   }
 
   /**
