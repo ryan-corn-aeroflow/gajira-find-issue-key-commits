@@ -36,7 +36,7 @@ export class JiraIssueObject {
     }
     const issue = new JiraIssueObject(key, throwErrorOnLoadFail);
     if (loadIssueData && JiraIssueObject.getJira()) {
-      await issue.loadIssueData({ jira: JiraIssueObject.getJira() });
+      // await issue.loadIssueData({ jira: JiraIssueObject.getJira() });
     }
     return issue;
   }
