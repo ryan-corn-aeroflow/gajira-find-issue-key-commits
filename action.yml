@@ -162,5 +162,5 @@ outputs:
   gist-name:
     description: The name of the Gist created
 runs:
-  using: 'node16'
+  using: 'node20'
   main: 'lib/index.mjs'
