@@ -30,14 +30,14 @@ export class JiraIssueObject {
    * @param {boolean} throwErrorOnLoadFail
    * @returns {Promise<JiraIssueObject>}
    * */
-  static async create(key, jira, loadIssueData = true, throwErrorOnLoadFail = false) {
+  static async create(key, jira, loadIssueData = false, throwErrorOnLoadFail = false) {
     if (jira && jira instanceof Jira) {
       JiraIssueObject.setJira(jira);
     }
     const issue = new JiraIssueObject(key, throwErrorOnLoadFail);
-    if (loadIssueData && JiraIssueObject.getJira()) {
-      // await issue.loadIssueData({ jira: JiraIssueObject.getJira() });
-    }
+    // if (loadIssueData && JiraIssueObject.getJira()) {
+    //   await issue.loadIssueData({ jira: JiraIssueObject.getJira() });
+    // }
     return issue;
   }
 
